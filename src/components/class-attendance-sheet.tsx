@@ -1,10 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import type { AcademicClass, AttendanceRecord, AttendanceStatus, RosterStudent } from "@/types";
-import { DEFAULT_ROSTER } from "@/lib/roster/mock-roster";
-import { calculateAttendanceMetrics } from "@/lib/attendance/attendance-engine";
+import type {
+  AcademicClass,
+  AttendanceRecord,
+  AttendanceStatus,
+  RosterStudent,
+  ExcuseRequest,
+  SessionType,
+} from "@/types";
+import { DEFAULT_ROSTER, DEFAULT_EXCUSE_REQUESTS } from "@/lib/roster/mock-roster";
+import {
+  generateScheduleDates,
+  calculateEffectiveAbsencesWithSessions,
+  isSessionExemptFromFDA,
+} from "@/lib/attendance/session-engine";
 import { RapidRollCallOverlay } from "./rapid-roll-call-overlay";
+import { ExcuseSlipResolutionModal } from "./excuse-slip-resolution-modal";
 import {
   CheckCircle2,
   Clock,
@@ -15,6 +27,10 @@ import {
   Search,
   AlertTriangle,
   Check,
+  FileText,
+  Plus,
+  CalendarDays,
+  X,
 } from "lucide-react";
 
 interface ClassAttendanceSheetProps {
@@ -28,17 +44,23 @@ const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
   { id: "att_2", classId: "cls_01", studentId: "stud_02", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
   { id: "att_3", classId: "cls_01", studentId: "stud_03", date: "2026-10-09", status: "L", note: "Traffic along Commonwealth", createdAt: "2026-10-09T09:15:00Z" },
   { id: "att_4", classId: "cls_01", studentId: "stud_04", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
-  { id: "att_5", classId: "cls_01", studentId: "stud_05", date: "2026-10-09", status: "A", note: "No notice provided", createdAt: "2026-10-09T09:00:00Z" },
+  { id: "att_5", classId: "cls_01", studentId: "stud_05", date: "2026-10-09", status: "A", note: "Hospitalization for acute viral infection", createdAt: "2026-10-09T09:00:00Z" },
 
   // Session 2: 2026-10-14
   { id: "att_6", classId: "cls_01", studentId: "stud_01", date: "2026-10-14", status: "P", createdAt: "2026-10-14T09:00:00Z" },
   { id: "att_7", classId: "cls_01", studentId: "stud_02", date: "2026-10-14", status: "E", note: "University Debate Championship", createdAt: "2026-10-14T09:00:00Z" },
-  { id: "att_8", classId: "cls_01", studentId: "stud_03", date: "2026-10-14", status: "P", createdAt: "2026-10-14T09:00:00Z" },
-  { id: "att_9", classId: "cls_01", studentId: "stud_04", date: "2026-10-14", status: "L", note: "Bus breakdown", createdAt: "2026-10-14T09:20:00Z" },
+  { id: "att_8", classId: "cls_01", studentId: "stud_03", date: "2026-10-14", status: "L", note: "Heavy rain commute", createdAt: "2026-10-14T09:20:00Z" },
+  { id: "att_9", classId: "cls_01", studentId: "stud_04", date: "2026-10-14", status: "L", note: "Transit breakdown", createdAt: "2026-10-14T09:20:00Z" },
   { id: "att_10", classId: "cls_01", studentId: "stud_05", date: "2026-10-14", status: "A", note: "Absent without permit", createdAt: "2026-10-14T09:00:00Z" },
 ];
 
-const SESSION_DATES = ["2026-10-09", "2026-10-14", "2026-10-16"];
+const INITIAL_SESSION_DATES = ["2026-10-09", "2026-10-14", "2026-10-16"];
+
+const INITIAL_SESSION_TYPES: Record<string, SessionType> = {
+  "2026-10-09": "regular",
+  "2026-10-14": "regular",
+  "2026-10-16": "regular",
+};
 
 export function ClassAttendanceSheet({
   academicClass,
@@ -46,14 +68,24 @@ export function ClassAttendanceSheet({
 }: ClassAttendanceSheetProps) {
   const [students] = useState<RosterStudent[]>(DEFAULT_ROSTER);
   const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
-  const [sessionDates, setSessionDates] = useState<string[]>(SESSION_DATES);
+  const [sessionDates, setSessionDates] = useState<string[]>(INITIAL_SESSION_DATES);
+  const [sessionTypes, setSessionTypes] = useState<Record<string, SessionType>>(INITIAL_SESSION_TYPES);
   const [selectedDate, setSelectedDate] = useState<string>("2026-10-16");
   const [isRollCallOpen, setIsRollCallOpen] = useState(autoLaunchRollCall);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sessionType, setSessionType] = useState<
-    "regular" | "makeup" | "holiday" | "suspended" | "instructor_absence"
-  >("regular");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Excuse Slips Queue State
+  const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>(DEFAULT_EXCUSE_REQUESTS);
+  const [isExcuseModalOpen, setIsExcuseModalOpen] = useState(false);
+
+  // Add Custom Make-up Date Modal State
+  const [isAddDateModalOpen, setIsAddDateModalOpen] = useState(false);
+  const [newCustomDate, setNewCustomDate] = useState("");
+  const [newCustomType, setNewCustomType] = useState<SessionType>("makeup");
+
+  // Selected slip document preview modal
+  const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
 
   // Alphabetically sorted students
   const sortedStudents = [...students].sort((a, b) => {
@@ -67,17 +99,20 @@ export function ClassAttendanceSheet({
     return full.includes(searchQuery.toLowerCase());
   });
 
+  const pendingExcuseCount = excuseRequests.filter((r) => r.status === "pending").length;
+
+  // Active date session type
+  const activeSessionType = sessionTypes[selectedDate] || "regular";
+
   // Handle saving attendance from Rapid Roll-Call
   const handleSaveRollCall = (newRecords: AttendanceRecord[]) => {
     setRecords((prev) => {
-      // Remove any existing records for this class and date, then append new ones
       const filtered = prev.filter(
         (r) => !(r.classId === academicClass.id && r.date === selectedDate)
       );
       return [...filtered, ...newRecords];
     });
 
-    // Ensure selectedDate is in sessionDates
     if (!sessionDates.includes(selectedDate)) {
       setSessionDates((prev) => [...prev, selectedDate].sort());
     }
@@ -113,9 +148,78 @@ export function ClassAttendanceSheet({
           studentId,
           date,
           status: newStatus,
+          documentUrl: existing?.documentUrl,
+          note: existing?.note,
           createdAt: new Date().toISOString(),
         },
       ];
+    });
+  };
+
+  // Switch session type classification for selected date
+  const handleSetSessionType = (type: SessionType) => {
+    setSessionTypes((prev) => ({
+      ...prev,
+      [selectedDate]: type,
+    }));
+  };
+
+  // Add custom date (e.g. make-up class or institutional date)
+  const handleAddCustomDate = () => {
+    if (!newCustomDate) return;
+
+    if (!sessionDates.includes(newCustomDate)) {
+      setSessionDates((prev) => [...prev, newCustomDate].sort());
+    }
+
+    setSessionTypes((prev) => ({
+      ...prev,
+      [newCustomDate]: newCustomType,
+    }));
+
+    setSelectedDate(newCustomDate);
+    setIsAddDateModalOpen(false);
+    setNewCustomDate("");
+    setSaveSuccessMsg(`Session date ${newCustomDate} (${newCustomType}) added.`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  // Auto-generate semester dates from class schedule
+  const handleGenerateSemesterDates = () => {
+    // Generate dates for current semester range: 2026-10-01 to 2026-11-15
+    const generated = generateScheduleDates(
+      academicClass.schedule,
+      "2026-10-01",
+      "2026-11-15"
+    );
+
+    const combined = Array.from(new Set([...sessionDates, ...generated])).sort();
+    setSessionDates(combined);
+
+    setSessionTypes((prev) => {
+      const updated = { ...prev };
+      for (const d of generated) {
+        if (!updated[d]) updated[d] = "regular";
+      }
+      return updated;
+    });
+
+    setSaveSuccessMsg(`Generated ${generated.length} class session dates for semester.`);
+    setTimeout(() => setSaveSuccessMsg(null), 3500);
+  };
+
+  // Update record after excuse approval
+  const handleUpdateRecordFromExcuse = (updatedRecord: AttendanceRecord) => {
+    setRecords((prev) => {
+      const remaining = prev.filter(
+        (r) =>
+          !(
+            r.classId === updatedRecord.classId &&
+            r.studentId === updatedRecord.studentId &&
+            r.date === updatedRecord.date
+          )
+      );
+      return [...remaining, updatedRecord];
     });
   };
 
@@ -145,20 +249,37 @@ export function ClassAttendanceSheet({
             <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26]">
               Attendance Management
             </span>
-            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded font-semibold">
               3 Late = 1 Absence Policy
             </span>
           </div>
           <h2 className="text-lg font-bold text-zinc-950 mt-0.5">
-            Master Attendance Sheet & Roll-Call Engine
+            Master Attendance Sheet & Session Engine
           </h2>
           <p className="text-xs text-zinc-500">
-            View full historical attendance matrix or launch rapid single-key roll-call spotlight.
+            Automated session date generator, excuse resolution queue, and single-key roll-call.
           </p>
         </div>
 
         {/* Action Trigger Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Excuse Slips Queue Button */}
+          <button
+            onClick={() => setIsExcuseModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#7C1D26]" />
+            <span>Excuse Slips</span>
+            {pendingExcuseCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-mono text-[10px] font-black">
+                {pendingExcuseCount}
+              </span>
+            ) : (
+              <span className="text-zinc-400 text-[10px] font-normal">0 pending</span>
+            )}
+          </button>
+
+          {/* Rapid Roll-Call Launcher */}
           <button
             onClick={() => setIsRollCallOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
@@ -169,8 +290,8 @@ export function ClassAttendanceSheet({
         </div>
       </div>
 
-      {/* Session Controls & Date Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs">
+      {/* Session Controls, Date Picker & Classification Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 mr-1">
             <Calendar className="w-4 h-4 text-[#7C1D26]" />
@@ -183,7 +304,7 @@ export function ClassAttendanceSheet({
           >
             {sessionDates.map((d) => (
               <option key={d} value={d}>
-                {d} {d === "2026-10-16" ? "(Today)" : ""}
+                {d} {d === "2026-10-16" ? "(Today)" : ""} - ({sessionTypes[d] || "regular"})
               </option>
             ))}
           </select>
@@ -191,53 +312,82 @@ export function ClassAttendanceSheet({
           {/* Session Classification Toggle (DOCUMENTATION.md § 4.B.TAB 2) */}
           <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl text-[11px] font-medium text-zinc-600">
             <button
-              onClick={() => setSessionType("regular")}
+              onClick={() => handleSetSessionType("regular")}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                sessionType === "regular" ? "bg-white text-zinc-900 font-bold shadow-xs" : "hover:text-zinc-900"
+                activeSessionType === "regular"
+                  ? "bg-white text-zinc-900 font-bold shadow-xs"
+                  : "hover:text-zinc-900"
               }`}
             >
               Regular
             </button>
             <button
-              onClick={() => setSessionType("makeup")}
+              onClick={() => handleSetSessionType("makeup")}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                sessionType === "makeup" ? "bg-white text-zinc-900 font-bold shadow-xs" : "hover:text-zinc-900"
+                activeSessionType === "makeup"
+                  ? "bg-purple-600 text-white font-bold shadow-xs"
+                  : "hover:text-zinc-900"
               }`}
             >
               Make-up
             </button>
             <button
-              onClick={() => setSessionType("holiday")}
+              onClick={() => handleSetSessionType("holiday")}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                sessionType === "holiday" ? "bg-white text-zinc-900 font-bold shadow-xs" : "hover:text-zinc-900"
+                activeSessionType === "holiday"
+                  ? "bg-amber-600 text-white font-bold shadow-xs"
+                  : "hover:text-zinc-900"
               }`}
+              title="Official university holiday (exempt from absences)"
             >
               Holiday
             </button>
             <button
-              onClick={() => setSessionType("suspended")}
+              onClick={() => handleSetSessionType("suspended")}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                sessionType === "suspended" ? "bg-white text-zinc-900 font-bold shadow-xs" : "hover:text-zinc-900"
+                activeSessionType === "suspended"
+                  ? "bg-blue-600 text-white font-bold shadow-xs"
+                  : "hover:text-zinc-900"
               }`}
+              title="Weather / Institutional suspension (exempt from absences)"
             >
               Suspended
             </button>
             <button
-              onClick={() => setSessionType("instructor_absence")}
+              onClick={() => handleSetSessionType("instructor_absence")}
               className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                sessionType === "instructor_absence"
+                activeSessionType === "instructor_absence"
                   ? "bg-[#7C1D26] text-white font-bold shadow-xs"
                   : "hover:text-zinc-900"
               }`}
-              title="Official instructor self-absence (does not penalize students)"
+              title="Faculty Self-Absence (exempts session and does NOT penalize students)"
             >
               Faculty Self-Absence
             </button>
           </div>
+
+          {/* Add Date / Auto Generate Buttons */}
+          <button
+            onClick={() => setIsAddDateModalOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer"
+            title="Add Make-up class date"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#7C1D26]" />
+            <span>Add Date</span>
+          </button>
+
+          <button
+            onClick={handleGenerateSemesterDates}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition cursor-pointer"
+            title="Auto-generate all semester dates matching schedule"
+          >
+            <CalendarDays className="w-3.5 h-3.5 text-zinc-500" />
+            <span>Generate Dates</span>
+          </button>
         </div>
 
         {/* Search Filter */}
-        <div className="relative w-full sm:w-60">
+        <div className="relative w-full lg:w-56">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
@@ -295,37 +445,75 @@ export function ClassAttendanceSheet({
                 <th className="py-3.5 px-4 w-32 font-mono">Student ID</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Student Name</th>
                 <th className="py-3.5 px-3 w-28">Program</th>
-                {sessionDates.map((date) => (
-                  <th
-                    key={date}
-                    className={`py-3.5 px-3 w-24 text-center font-mono ${
-                      date === selectedDate ? "bg-[#7C1D26]/5 text-[#7C1D26]" : ""
-                    }`}
-                  >
-                    <div>{date.slice(5)}</div>
-                    {date === selectedDate && (
-                      <span className="text-[9px] font-sans font-bold text-[#7C1D26]">Active</span>
-                    )}
-                  </th>
-                ))}
+                {sessionDates.map((date) => {
+                  const sType = sessionTypes[date] || "regular";
+
+                  return (
+                    <th
+                      key={date}
+                      className={`py-3 px-2 w-28 text-center font-mono ${
+                        date === selectedDate ? "bg-[#7C1D26]/5 text-[#7C1D26]" : ""
+                      }`}
+                    >
+                      <div>{date.slice(5)}</div>
+                      {sType !== "regular" && (
+                        <span
+                          className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-sans font-black uppercase mt-0.5 ${
+                            sType === "instructor_absence"
+                              ? "bg-[#7C1D26] text-white"
+                              : sType === "holiday"
+                              ? "bg-amber-100 text-amber-800"
+                              : sType === "suspended"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-purple-100 text-purple-800"
+                          }`}
+                        >
+                          {sType === "instructor_absence"
+                            ? "Faculty Abs"
+                            : sType === "holiday"
+                            ? "Holiday"
+                            : sType === "suspended"
+                            ? "Suspended"
+                            : "Make-up"}
+                        </span>
+                      )}
+                      {date === selectedDate && sType === "regular" && (
+                        <span className="text-[9px] font-sans font-bold text-[#7C1D26] block">
+                          Active
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
                 <th className="py-3.5 px-3 w-28 text-center">Lates / Abs</th>
                 <th className="py-3.5 px-4 w-32 text-center">FDA Standing</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filteredStudents.map((student, idx) => {
-                // Collect attendance statuses for this student across all sessions
+                // Collect attendance records with session types for accurate FDA calculation
                 const studentRecords = sessionDates.map((date) => {
-                  return records.find(
-                    (r) => r.studentId === student.id && r.date === date && r.classId === academicClass.id
+                  const rec = records.find(
+                    (r) =>
+                      r.studentId === student.id &&
+                      r.date === date &&
+                      r.classId === academicClass.id
                   );
+                  return {
+                    status: rec?.status || ("A" as AttendanceStatus),
+                    sessionType: sessionTypes[date] || "regular",
+                    recorded: Boolean(rec),
+                    documentUrl: rec?.documentUrl,
+                    note: rec?.note,
+                  };
                 });
 
-                const rawStatuses = studentRecords
-                  .map((r) => r?.status)
-                  .filter((s): s is AttendanceStatus => Boolean(s));
+                // Compute FDA using only recorded sessions
+                const validRecordsForFDA = studentRecords
+                  .filter((s) => s.recorded)
+                  .map((s) => ({ status: s.status, sessionType: s.sessionType }));
 
-                const metrics = calculateAttendanceMetrics(rawStatuses, 4);
+                const metrics = calculateEffectiveAbsencesWithSessions(validRecordsForFDA, 4);
 
                 return (
                   <tr
@@ -375,37 +563,67 @@ export function ClassAttendanceSheet({
                     {/* Dynamic Date Session Cells */}
                     {sessionDates.map((date) => {
                       const rec = records.find(
-                        (r) => r.studentId === student.id && r.date === date && r.classId === academicClass.id
+                        (r) =>
+                          r.studentId === student.id &&
+                          r.date === date &&
+                          r.classId === academicClass.id
                       );
+                      const sType = sessionTypes[date] || "regular";
+                      const isExempt = isSessionExemptFromFDA(sType);
 
                       return (
                         <td
                           key={date}
-                          className={`py-3.5 px-3 text-center ${
+                          className={`py-3 px-2 text-center ${
                             date === selectedDate ? "bg-[#7C1D26]/5" : ""
                           }`}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleCellToggle(student.id, date)}
-                            title={rec?.note ? `Note: ${rec.note} (Click to toggle)` : "Click to toggle (P -> L -> E -> A)"}
-                            className={`inline-flex items-center justify-center w-8 h-8 rounded-xl font-bold font-mono text-xs transition shadow-xs cursor-pointer ${
-                              rec?.status === "P"
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200"
-                                : rec?.status === "L"
-                                ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
-                                : rec?.status === "E"
-                                ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200"
-                                : rec?.status === "A"
-                                ? "bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200"
-                                : "bg-zinc-100 text-zinc-400 border border-zinc-200 hover:bg-zinc-200"
-                            }`}
-                          >
-                            {rec?.status || "--"}
-                          </button>
-                          {rec?.note && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#7C1D26] mx-auto mt-0.5" title={rec.note} />
-                          )}
+                          <div className="inline-flex flex-col items-center">
+                            <button
+                              type="button"
+                              onClick={() => handleCellToggle(student.id, date)}
+                              title={
+                                rec?.note
+                                  ? `Note: ${rec.note} (Click to toggle)`
+                                  : "Click to toggle (P -> L -> E -> A)"
+                              }
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-xl font-bold font-mono text-xs transition shadow-xs cursor-pointer ${
+                                rec?.status === "P"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200"
+                                  : rec?.status === "L"
+                                  ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                                  : rec?.status === "E"
+                                  ? "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200"
+                                  : rec?.status === "A"
+                                  ? isExempt
+                                    ? "bg-zinc-200 text-zinc-600 border border-zinc-300 line-through"
+                                    : "bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200"
+                                  : "bg-zinc-100 text-zinc-400 border border-zinc-200 hover:bg-zinc-200"
+                              }`}
+                            >
+                              {rec?.status || "--"}
+                            </button>
+
+                            {/* Indicators: Note or Attached Medical Document */}
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {rec?.documentUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewDocUrl(rec.documentUrl || null)}
+                                  className="text-blue-600 hover:text-blue-800 transition"
+                                  title="View approved medical certificate"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                </button>
+                              )}
+                              {rec?.note && !rec.documentUrl && (
+                                <div
+                                  className="w-1.5 h-1.5 rounded-full bg-[#7C1D26]"
+                                  title={rec.note}
+                                />
+                              )}
+                            </div>
+                          </div>
                         </td>
                       );
                     })}
@@ -414,7 +632,9 @@ export function ClassAttendanceSheet({
                     <td className="py-3.5 px-3 text-center font-mono text-zinc-700">
                       <span>{metrics.late}L</span>
                       <span className="mx-1 text-zinc-300">/</span>
-                      <span className="font-bold text-[#7C1D26]">{metrics.effectiveAbsences}A</span>
+                      <span className="font-bold text-[#7C1D26]">
+                        {metrics.effectiveAbsences}A
+                      </span>
                     </td>
 
                     {/* FDA Status Badge */}
@@ -457,6 +677,117 @@ export function ClassAttendanceSheet({
           section={academicClass.section}
           date={selectedDate}
         />
+      )}
+
+      {/* Excuse Slip Resolution Modal */}
+      <ExcuseSlipResolutionModal
+        isOpen={isExcuseModalOpen}
+        onClose={() => setIsExcuseModalOpen(false)}
+        requests={excuseRequests}
+        attendanceRecords={records}
+        onUpdateRecord={handleUpdateRecordFromExcuse}
+        onUpdateRequests={setExcuseRequests}
+      />
+
+      {/* Add Custom Make-up / Session Date Modal */}
+      {isAddDateModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-zinc-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-zinc-950">Add Session Date</h3>
+              <button
+                onClick={() => setIsAddDateModalOpen(false)}
+                className="p-1 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-zinc-700 block mb-1">
+                  Select Date (YYYY-MM-DD):
+                </label>
+                <input
+                  type="date"
+                  value={newCustomDate}
+                  onChange={(e) => setNewCustomDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-zinc-700 block mb-1">
+                  Session Type:
+                </label>
+                <select
+                  value={newCustomType}
+                  onChange={(e) => setNewCustomType(e.target.value as SessionType)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26]"
+                >
+                  <option value="makeup">Make-up Class</option>
+                  <option value="regular">Regular Class</option>
+                  <option value="holiday">Holiday</option>
+                  <option value="suspended">Suspended (Weather/Institutional)</option>
+                  <option value="instructor_absence">Faculty Self-Absence</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setIsAddDateModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddCustomDate}
+                disabled={!newCustomDate}
+                className="px-4 py-2 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-xs disabled:opacity-40 transition cursor-pointer"
+              >
+                Add Session Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Document Preview Modal */}
+      {previewDocUrl && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-6 bg-zinc-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-xl bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#7C1D26]" />
+                <span>Verified Excuse Document</span>
+              </h3>
+              <button
+                onClick={() => setPreviewDocUrl(null)}
+                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-500 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-100 max-h-[60vh] flex items-center justify-center">
+              <img
+                src={previewDocUrl}
+                alt="Document preview"
+                className="w-full h-auto max-h-[60vh] object-contain"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setPreviewDocUrl(null)}
+                className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-zinc-800 transition cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

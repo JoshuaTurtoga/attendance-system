@@ -1,4 +1,4 @@
-import type { RosterStudent, JoinRequest } from "../../types/index.ts";
+import type { RosterStudent, JoinRequest, ExcuseRequest } from "../../types/index.ts";
 
 export const DEFAULT_ROSTER: RosterStudent[] = [
   {
@@ -91,5 +91,32 @@ export const DEFAULT_JOIN_REQUESTS: JoinRequest[] = [
     photoIdUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
     status: "pending",
     submittedAt: "2026-10-14 11:00 AM",
+  },
+];
+
+export const DEFAULT_EXCUSE_REQUESTS: ExcuseRequest[] = [
+  {
+    id: "exc_01",
+    classId: "cls_01",
+    studentId: "stud_05",
+    studentName: "Gabriel Zubiri",
+    studentNumber: "2024-10319",
+    date: "2026-10-09",
+    reason: "Severe viral fever with hospital medical certificate",
+    documentUrl: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80",
+    status: "pending",
+    submittedAt: "2026-10-10 08:30 AM",
+  },
+  {
+    id: "exc_02",
+    classId: "cls_01",
+    studentId: "stud_03",
+    studentName: "Marcus Chen",
+    studentNumber: "2024-10492",
+    date: "2026-10-14",
+    reason: "Represented university in Inter-Collegiate Programming Contest (ICPC)",
+    documentUrl: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&auto=format&fit=crop&q=80",
+    status: "pending",
+    submittedAt: "2026-10-15 09:15 AM",
   },
 ];

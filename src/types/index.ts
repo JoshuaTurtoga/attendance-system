@@ -56,14 +56,47 @@ export interface RosterStudent {
   avatarUrl?: string;
 }
 
+export type SessionType =
+  | "regular"
+  | "makeup"
+  | "holiday"
+  | "suspended"
+  | "instructor_absence";
+
+export interface ClassSession {
+  id: string;
+  classId: string;
+  date: string; // ISO date "YYYY-MM-DD"
+  type: SessionType;
+  title?: string;
+  notes?: string;
+  exemptFromFDA?: boolean;
+}
+
 export interface AttendanceRecord {
   id: string;
   classId: string;
   studentId: string;
-  date: string;        // ISO date "YYYY-MM-DD"
+  date: string; // ISO date "YYYY-MM-DD"
   status: AttendanceStatus;
   note?: string;
+  documentUrl?: string; // Attached medical cert / excuse document link
   createdAt: string;
+}
+
+export interface ExcuseRequest {
+  id: string;
+  classId: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  date: string; // ISO date "YYYY-MM-DD"
+  reason: string;
+  documentUrl?: string;
+  status: "pending" | "approved" | "declined";
+  rejectionReason?: string;
+  submittedAt: string;
+  resolvedAt?: string;
 }
 
 export interface GradeItem {
