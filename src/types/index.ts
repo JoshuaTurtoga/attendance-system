@@ -17,6 +17,7 @@ export interface UserProfile {
   department?: string;
   studentNumber?: string;
   avatarUrl?: string;
+  isSuspended?: boolean;
   createdAt: string;
 }
 
