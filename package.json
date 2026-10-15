@@ -1,28 +1,30 @@
 {
   "name": "attendance-system",
-  "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "dev": "next dev",
+    "prebuild": "node scripts/check-node-pin.mjs",
+    "build": "next build",
+    "postbuild": "node scripts/write-version.mjs .next",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "echo \"Tests: none - scaffold only, first test written with Milestone 2\" && exit 0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
-    "exceljs": "^4.4.0",
-    "lucide-react": "^1.57.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "next": "16.4.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "oxlint": "^1.81.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.1",
+    "semver": "^7.8.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

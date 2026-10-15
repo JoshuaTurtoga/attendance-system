@@ -1,0 +1,56 @@
+name: CI
+
+# Proves every push to main and every PR on a clean Linux machine. `npm ci` here is
+# the point: a lockfile written by Windows npm that Linux rejects fails in minutes,
+# not at deploy time. CI never deploys and holds no production credentials - deploys
+# are a separate step a human approves, after preflight-deploy.mjs passes.
+#
+# Single package at the repo root. For a server/ + web/ split, copy the job once per
+# folder and set `defaults.run.working-directory` + `cache-dependency-path`
+# (one job per package folder).
+#
+# A green run means lint and tests RAN. No tests yet, on purpose? Delete the Test step and
+# add a line `Tests: none - <reason>` to AGENTS.md, so the choice is visible (preflight reports it).
+# The workflow `name: CI` and the job `name:` are what preflight-deploy.mjs --require checks by.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push makes an in-flight run pointless - cancel it rather than queue.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The exact Node the host will install. .nvmrc must be a full version.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # No --if-present: `npm run lint` and `npm test` exit 1 when the script is missing,
+      # so a project without them fails here instead of passing untested.
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # `prebuild` runs scripts/check-node-pin.mjs; a Vite/TS build also typechecks.
+      - name: Build
+        run: npm run build
