@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import type { RosterStudent } from "@/types";
+import type { RosterStudent, JoinRequest } from "@/types";
 import {
   sortRosterAlphabetically,
   parseClipboardRosterData,
   parseStudentName,
   SequencedStudent,
 } from "@/lib/roster/roster-engine";
+import { JoinRequestQueue } from "./join-request-queue";
 import {
   Users,
   Plus,
-  ClipboardPaste,
   Save,
   Trash2,
   Check,
@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
   X,
+  Sparkles,
 } from "lucide-react";
 
 interface ClassRosterTableProps {
@@ -26,7 +27,6 @@ interface ClassRosterTableProps {
   initialStudents?: RosterStudent[];
 }
 
-// Initial demo roster for immediate rich demonstration
 const DEFAULT_ROSTER: RosterStudent[] = [
   {
     id: "stud_01",
@@ -80,11 +80,54 @@ const DEFAULT_ROSTER: RosterStudent[] = [
   },
 ];
 
+const DEFAULT_JOIN_REQUESTS: JoinRequest[] = [
+  {
+    id: "req_01",
+    classId: "cls_01",
+    studentNumber: "2024-10492",
+    studentName: "Marcus Chen",
+    program: "BSCS",
+    academicLevel: "3rd Year",
+    photoIdUrl:
+      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=160&auto=format&fit=crop&q=80",
+    status: "pending",
+    submittedAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: "req_02",
+    classId: "cls_01",
+    studentNumber: "2024-10821",
+    studentName: "Sofia Aquino",
+    program: "BSCS",
+    academicLevel: "3rd Year",
+    photoIdUrl:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&auto=format&fit=crop&q=80",
+    status: "pending",
+    submittedAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    id: "req_03",
+    classId: "cls_01",
+    studentNumber: "2024-88888",
+    studentName: "David Miller",
+    program: "BSIT",
+    academicLevel: "2nd Year",
+    photoIdUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80",
+    status: "pending",
+    submittedAt: new Date(Date.now() - 10800000).toISOString(),
+  },
+];
+
+type RosterSubTab = "table" | "queue";
+
 export function ClassRosterTable({
   classId,
   initialStudents = DEFAULT_ROSTER,
 }: ClassRosterTableProps) {
   const [students, setStudents] = useState<RosterStudent[]>(initialStudents);
+  const [requests, setRequests] = useState<JoinRequest[]>(DEFAULT_JOIN_REQUESTS);
+  const [activeSubTab, setActiveSubTab] = useState<RosterSubTab>("table");
   const [searchQuery, setSearchQuery] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -100,6 +143,8 @@ export function ClassRosterTable({
   const [draftFullName, setDraftFullName] = useState("");
   const [draftProgram, setDraftProgram] = useState("BSCS");
   const [draftLevel, setDraftLevel] = useState("3rd Year");
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   // Alphabetically sorted roster
   const sequencedRoster: SequencedStudent[] = sortRosterAlphabetically(students);
@@ -167,206 +212,285 @@ export function ClassRosterTable({
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
-      {/* Roster Controls & Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search roster by name, ID..."
-              className="pl-9 pr-4 py-2 text-xs rounded-xl border border-zinc-200/90 bg-white w-64 focus:outline-none focus:ring-2 focus:ring-[#7C1D26]/30 font-medium"
-            />
-          </div>
-          <span className="text-xs text-zinc-500 font-medium">
-            Total: <strong>{students.length} students</strong>
-          </span>
-        </div>
-
+      {/* Sub-Tab Navigation: Roster vs Join Queue */}
+      <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3">
         <div className="flex items-center gap-2">
-          {/* Clipboard Bulk Paste Button */}
           <button
-            onClick={() => setIsPasteModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-200/90 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+            onClick={() => setActiveSubTab("table")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+              activeSubTab === "table"
+                ? "bg-[#7C1D26] text-white shadow-sm"
+                : "text-zinc-600 hover:bg-zinc-100"
+            }`}
           >
-            <FileSpreadsheet className="w-4 h-4 text-[#7C1D26]" />
-            <span>Paste from Excel / Sheets</span>
+            <Users className="w-4 h-4" />
+            <span>Master Class List ({students.length})</span>
           </button>
 
-          {/* Add Student Inline Button */}
           <button
-            onClick={() => setIsAddingInline(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-200/90 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+            onClick={() => setActiveSubTab("queue")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+              activeSubTab === "queue"
+                ? "bg-[#7C1D26] text-white shadow-sm"
+                : "text-zinc-600 hover:bg-zinc-100"
+            }`}
           >
-            <Plus className="w-4 h-4 text-zinc-600" />
-            <span>Add Row</span>
-          </button>
-
-          {/* Save All Button */}
-          <button
-            onClick={handleSaveAll}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer"
-          >
-            {savedSuccess ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-300" />
-                <span>Roster Saved</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save All</span>
-              </>
+            <Sparkles className="w-4 h-4" />
+            <span>Join Request Queue</span>
+            {pendingCount > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  activeSubTab === "queue"
+                    ? "bg-white text-[#7C1D26]"
+                    : "bg-rose-100 text-rose-700"
+                }`}
+              >
+                {pendingCount}
+              </span>
             )}
           </button>
         </div>
+
+        {activeSubTab === "table" && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPasteModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#7C1D26]" />
+              <span>Paste from Sheets</span>
+            </button>
+
+            <button
+              onClick={() => setIsAddingInline(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 text-zinc-600" />
+              <span>Add Row</span>
+            </button>
+
+            <button
+              onClick={handleSaveAll}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+            >
+              {savedSuccess ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save All</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 5-Column Master Roster Table (DOCUMENTATION.md § 4.B.5.TAB 1) */}
-      <div className="overflow-x-auto rounded-2xl border border-zinc-200/90 bg-white shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-zinc-50/90 border-b border-zinc-200/80 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-              <th className="py-3 px-4 w-12 text-center">#</th>
-              <th className="py-3 px-4 w-40">Student Number</th>
-              <th className="py-3 px-4">Student Name (Last, First M.I.)</th>
-              <th className="py-3 px-4 w-36">Program / Strand</th>
-              <th className="py-3 px-4 w-32">Academic Level</th>
-              <th className="py-3 px-4 w-16 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700 font-medium">
-            {/* Inline Add Row Form */}
-            {isAddingInline && (
-              <tr className="bg-[#7C1D26]/5 animate-in fade-in duration-150">
-                <td className="py-2.5 px-4 text-center font-bold text-[#7C1D26]">+</td>
-                <td className="py-2.5 px-3">
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="2024-XXXXX"
-                    value={draftStudentNumber}
-                    onChange={(e) => setDraftStudentNumber(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#7C1D26]"
-                  />
-                </td>
-                <td className="py-2.5 px-3">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Last Name, First Name M.I."
-                    value={draftFullName}
-                    onChange={(e) => setDraftFullName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#7C1D26]"
-                  />
-                </td>
-                <td className="py-2.5 px-3">
-                  <input
-                    type="text"
-                    placeholder="e.g. BSCS"
-                    value={draftProgram}
-                    onChange={(e) => setDraftProgram(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs font-mono"
-                  />
-                </td>
-                <td className="py-2.5 px-3">
-                  <input
-                    type="text"
-                    placeholder="e.g. 3rd Year"
-                    value={draftLevel}
-                    onChange={(e) => setDraftLevel(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs"
-                  />
-                </td>
-                <td className="py-2.5 px-4 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={handleAddInlineSubmit}
-                      className="p-1 rounded bg-[#7C1D26] text-white hover:bg-[#5E141B] cursor-pointer"
-                      title="Commit Row (Enter)"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setIsAddingInline(false)}
-                      className="p-1 rounded bg-zinc-200 text-zinc-600 hover:bg-zinc-300 cursor-pointer"
-                      title="Cancel"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )}
+      {/* Render Join Request Queue */}
+      {activeSubTab === "queue" && (
+        <JoinRequestQueue
+          requests={requests}
+          roster={students}
+          onRosterUpdated={(newRoster) => setStudents(newRoster)}
+          onRequestStatusUpdated={(updatedReqs) => setRequests(updatedReqs)}
+        />
+      )}
 
-            {filteredRoster.length === 0 && !isAddingInline ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-zinc-400">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold text-zinc-600">No students on roster</p>
-                  <p className="text-[11px] mt-0.5">
-                    Click &ldquo;Add Row&rdquo; or &ldquo;Paste from Excel / Sheets&rdquo; to populate the class list.
-                  </p>
-                </td>
-              </tr>
-            ) : (
-              filteredRoster.map((student) => {
-                const fullNameDisplay = `${student.lastName}, ${student.firstName}${
-                  student.middleInitial ? ` ${student.middleInitial}` : ""
-                }`;
+      {/* Render Master 5-Column Roster Table */}
+      {activeSubTab === "table" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="relative">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search roster by name, ID..."
+                className="pl-9 pr-4 py-1.5 text-xs rounded-xl border border-zinc-200/90 bg-white w-64 focus:outline-none focus:ring-2 focus:ring-[#7C1D26]/30 font-medium"
+              />
+            </div>
+            <p className="text-xs text-zinc-400">
+              Pre-populated list sorted alphabetically by Student Last Name
+            </p>
+          </div>
 
-                return (
-                  <tr
-                    key={student.id}
-                    className="hover:bg-zinc-50/80 transition-colors group"
-                  >
-                    {/* Col 1: Sequence # */}
-                    <td className="py-3 px-4 text-center font-mono font-bold text-zinc-400">
-                      {student.sequenceNumber}
+          <div className="overflow-x-auto rounded-2xl border border-zinc-200/90 bg-white shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-50/90 border-b border-zinc-200/80 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                  <th className="py-3 px-4 w-12 text-center">#</th>
+                  <th className="py-3 px-4 w-44">Student Number</th>
+                  <th className="py-3 px-4">Student Name (Last, First M.I.)</th>
+                  <th className="py-3 px-4 w-36">Program / Strand</th>
+                  <th className="py-3 px-4 w-32">Academic Level</th>
+                  <th className="py-3 px-4 w-16 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700 font-medium">
+                {/* Inline Add Row Form */}
+                {isAddingInline && (
+                  <tr className="bg-[#7C1D26]/5 animate-in fade-in duration-150">
+                    <td className="py-2.5 px-4 text-center font-bold text-[#7C1D26]">+</td>
+                    <td className="py-2.5 px-3">
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="2024-XXXXX"
+                        value={draftStudentNumber}
+                        onChange={(e) => setDraftStudentNumber(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#7C1D26]"
+                      />
                     </td>
-
-                    {/* Col 2: Student Number */}
-                    <td className="py-3 px-4 font-mono font-bold text-[#7C1D26]">
-                      {student.studentNumber}
+                    <td className="py-2.5 px-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Last Name, First Name M.I."
+                        value={draftFullName}
+                        onChange={(e) => setDraftFullName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#7C1D26]"
+                      />
                     </td>
-
-                    {/* Col 3: Student Name */}
-                    <td className="py-3 px-4 font-semibold text-zinc-900">
-                      {fullNameDisplay}
+                    <td className="py-2.5 px-3">
+                      <input
+                        type="text"
+                        placeholder="e.g. BSCS"
+                        value={draftProgram}
+                        onChange={(e) => setDraftProgram(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs font-mono"
+                      />
                     </td>
-
-                    {/* Col 4: Program */}
-                    <td className="py-3 px-4 font-mono text-zinc-600">
-                      <span className="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-[11px]">
-                        {student.program}
-                      </span>
+                    <td className="py-2.5 px-3">
+                      <input
+                        type="text"
+                        placeholder="e.g. 3rd Year"
+                        value={draftLevel}
+                        onChange={(e) => setDraftLevel(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs"
+                      />
                     </td>
-
-                    {/* Col 5: Academic Level */}
-                    <td className="py-3 px-4 text-zinc-600 text-[11px]">
-                      {student.academicLevel}
-                    </td>
-
-                    {/* Col 6: Delete action */}
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteStudent(student.id)}
-                        className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-rose-600 transition cursor-pointer"
-                        title="Delete student"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <td className="py-2.5 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={handleAddInlineSubmit}
+                          className="p-1 rounded bg-[#7C1D26] text-white hover:bg-[#5E141B] cursor-pointer"
+                          title="Commit Row"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setIsAddingInline(false)}
+                          className="p-1 rounded bg-zinc-200 text-zinc-600 hover:bg-zinc-300 cursor-pointer"
+                          title="Cancel"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                )}
+
+                {filteredRoster.length === 0 && !isAddingInline ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-zinc-400">
+                      <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="font-semibold text-zinc-600">No students on roster</p>
+                      <p className="text-[11px] mt-0.5">
+                        Click &ldquo;Add Row&rdquo; or &ldquo;Paste from Sheets&rdquo; to populate the class list.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRoster.map((student) => {
+                    const fullNameDisplay = `${student.lastName}, ${student.firstName}${
+                      student.middleInitial ? ` ${student.middleInitial}` : ""
+                    }`;
+                    const isLinked = Boolean(student.userId || student.avatarUrl);
+
+                    return (
+                      <tr
+                        key={student.id}
+                        className="hover:bg-zinc-50/80 transition-colors group"
+                      >
+                        {/* Col 1: Sequence # */}
+                        <td className="py-3 px-4 text-center font-mono font-bold text-zinc-400">
+                          {student.sequenceNumber}
+                        </td>
+
+                        {/* Col 2: Student Number */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#7C1D26]">
+                              {student.studentNumber}
+                            </span>
+                            {isLinked && (
+                              <span
+                                className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px]"
+                                title="Live Student Account Linked"
+                              >
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Col 3: Student Name */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            {student.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={student.avatarUrl}
+                                alt={student.firstName}
+                                className="w-7 h-7 rounded-full object-cover border border-zinc-200"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-500 font-bold text-[10px] flex items-center justify-center">
+                                {student.lastName[0]}
+                              </div>
+                            )}
+                            <span className="font-semibold text-zinc-900">
+                              {fullNameDisplay}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Col 4: Program */}
+                        <td className="py-3 px-4 font-mono text-zinc-600">
+                          <span className="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-[11px]">
+                            {student.program}
+                          </span>
+                        </td>
+
+                        {/* Col 5: Academic Level */}
+                        <td className="py-3 px-4 text-zinc-600 text-[11px]">
+                          {student.academicLevel}
+                        </td>
+
+                        {/* Col 6: Delete action */}
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => handleDeleteStudent(student.id)}
+                            className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-rose-600 transition cursor-pointer"
+                            title="Delete student"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Clipboard Bulk Import Modal */}
       {isPasteModalOpen && (
@@ -374,7 +498,7 @@ export function ClassRosterTable({
           <div className="w-full max-w-2xl bg-white rounded-3xl border border-zinc-200 shadow-2xl p-6 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
               <div className="flex items-center gap-2">
-                <ClipboardPaste className="w-5 h-5 text-[#7C1D26]" />
+                <FileSpreadsheet className="w-5 h-5 text-[#7C1D26]" />
                 <h3 className="font-bold text-zinc-900 text-base">
                   Paste Class Roster from Excel or Google Sheets
                 </h3>
