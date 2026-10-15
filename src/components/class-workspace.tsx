@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { AcademicClass } from "@/types";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
+import { ClassRosterTable } from "./class-roster-table";
 import {
   ArrowLeft,
   Users,
@@ -163,33 +164,7 @@ export function ClassWorkspace({ academicClass, onBack }: ClassWorkspaceProps) {
       {/* Tab Content Panes */}
       <div className="p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px]">
         {activeTab === "roster" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
-                  Class Roster (Alphabetical Order)
-                </h3>
-                <p className="text-xs text-zinc-500">
-                  5-Column Master Table: `#`, `Student Number`, `Student Name`, `Program`, `Academic Level`
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 font-medium">
-                  Milestone 4 Engine Ready
-                </span>
-              </div>
-            </div>
-
-            <div className="p-8 rounded-2xl bg-zinc-50 border border-dashed border-zinc-300 text-center space-y-2">
-              <Users className="w-8 h-8 text-[#7C1D26] mx-auto opacity-70" />
-              <p className="text-sm font-bold text-zinc-800">
-                Class Workspace Initialized
-              </p>
-              <p className="text-xs text-zinc-500 max-w-md mx-auto">
-                Next Milestone (Milestone 4 & 5) will populate the interactive 5-column keyboard table, clipboard bulk paste, and Join Request smart matching queue.
-              </p>
-            </div>
-          </div>
+          <ClassRosterTable classId={academicClass.id} />
         )}
 
         {activeTab === "attendance" && (
