@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Alabaster & Academic Garnet Color Tokens */
+  --canvas-bg: #FAFAFA;
+  --surface-card: #FFFFFF;
+  --primary-garnet: #7C1D26;
+  --garnet-hover: #5E141B;
+  --garnet-tint: #FDF2F3;
+  --ink-primary: #09090B;
+  --ink-secondary: #71717A;
+  --border-subtle: #E4E4E7;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Semantic Attendance Pills */
+  --pill-p-text: #047857;
+  --pill-p-bg: #ECFDF5;
+  --pill-p-border: #A7F3D0;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --pill-l-text: #B45309;
+  --pill-l-bg: #FFFBEB;
+  --pill-l-border: #FDE68A;
+
+  --pill-e-text: #1D4ED8;
+  --pill-e-bg: #EFF6FF;
+  --pill-e-border: #BFDBFE;
+
+  --pill-a-text: #BE123C;
+  --pill-a-bg: #FFF1F2;
+  --pill-a-border: #FECDD3;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--canvas-bg);
+  color: var(--ink-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism Surface Tokens */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(228, 228, 231, 0.8);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 20px -2px rgba(124, 29, 38, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.glass-spotlight-active {
+  background: #FFFFFF;
+  border: 1px solid rgba(124, 29, 38, 0.35);
+  box-shadow: 0 12px 32px -4px rgba(124, 29, 38, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Semantic Attendance Status Badges / Pills */
+.pill-status-p {
+  color: var(--pill-p-text);
+  background-color: var(--pill-p-bg);
+  border: 1px solid var(--pill-p-border);
+}
+
+.pill-status-l {
+  color: var(--pill-l-text);
+  background-color: var(--pill-l-bg);
+  border: 1px solid var(--pill-l-border);
+}
+
+.pill-status-e {
+  color: var(--pill-e-text);
+  background-color: var(--pill-e-bg);
+  border: 1px solid var(--pill-e-border);
+}
+
+.pill-status-a {
+  color: var(--pill-a-text);
+  background-color: var(--pill-a-bg);
+  border: 1px solid var(--pill-a-border);
 }

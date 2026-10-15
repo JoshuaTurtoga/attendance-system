@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# framework runners
+.greploop/*
+!.greploop/config.json
+!.greploop/rules.md
+.scanloop/*
