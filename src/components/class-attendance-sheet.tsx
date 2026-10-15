@@ -8,6 +8,8 @@ import type {
   RosterStudent,
   ExcuseRequest,
   SessionType,
+  GradeItem,
+  StudentGrade,
 } from "@/types";
 import { DEFAULT_ROSTER, DEFAULT_EXCUSE_REQUESTS } from "@/lib/roster/mock-roster";
 import {
@@ -15,6 +17,7 @@ import {
   calculateEffectiveAbsencesWithSessions,
   isSessionExemptFromFDA,
 } from "@/lib/attendance/session-engine";
+import { detectCrossModuleDiscrepancies } from "@/lib/sync/cross-module-sync";
 import { RapidRollCallOverlay } from "./rapid-roll-call-overlay";
 import { ExcuseSlipResolutionModal } from "./excuse-slip-resolution-modal";
 import {
@@ -31,11 +34,21 @@ import {
   Plus,
   CalendarDays,
   X,
+  Download,
 } from "lucide-react";
 
 interface ClassAttendanceSheetProps {
   academicClass: AcademicClass;
   autoLaunchRollCall?: boolean;
+  sharedRecords?: AttendanceRecord[];
+  onRecordsChange?: (records: AttendanceRecord[]) => void;
+  sharedSessionDates?: string[];
+  onSessionDatesChange?: (dates: string[]) => void;
+  sharedSessionTypes?: Record<string, SessionType>;
+  onSessionTypesChange?: (types: Record<string, SessionType>) => void;
+  gradeItems?: GradeItem[];
+  studentGrades?: StudentGrade[];
+  onExportExcel?: () => void;
 }
 
 const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
@@ -65,15 +78,55 @@ const INITIAL_SESSION_TYPES: Record<string, SessionType> = {
 export function ClassAttendanceSheet({
   academicClass,
   autoLaunchRollCall = false,
+  sharedRecords,
+  onRecordsChange,
+  sharedSessionDates,
+  onSessionDatesChange,
+  sharedSessionTypes,
+  onSessionTypesChange,
+  gradeItems,
+  studentGrades,
+  onExportExcel,
 }: ClassAttendanceSheetProps) {
   const [students] = useState<RosterStudent[]>(DEFAULT_ROSTER);
-  const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
-  const [sessionDates, setSessionDates] = useState<string[]>(INITIAL_SESSION_DATES);
-  const [sessionTypes, setSessionTypes] = useState<Record<string, SessionType>>(INITIAL_SESSION_TYPES);
+  const [internalRecords, setInternalRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
+  const [internalSessionDates, setInternalSessionDates] = useState<string[]>(INITIAL_SESSION_DATES);
+  const [internalSessionTypes, setInternalSessionTypes] = useState<Record<string, SessionType>>(INITIAL_SESSION_TYPES);
+
+  const records = sharedRecords || internalRecords;
+  const setRecords = (updater: AttendanceRecord[] | ((prev: AttendanceRecord[]) => AttendanceRecord[])) => {
+    const next = typeof updater === "function" ? updater(records) : updater;
+    setInternalRecords(next);
+    if (onRecordsChange) onRecordsChange(next);
+  };
+
+  const sessionDates = sharedSessionDates || internalSessionDates;
+  const setSessionDates = (updater: string[] | ((prev: string[]) => string[])) => {
+    const next = typeof updater === "function" ? updater(sessionDates) : updater;
+    setInternalSessionDates(next);
+    if (onSessionDatesChange) onSessionDatesChange(next);
+  };
+
+  const sessionTypes = sharedSessionTypes || internalSessionTypes;
+  const setSessionTypes = (updater: Record<string, SessionType> | ((prev: Record<string, SessionType>) => Record<string, SessionType>)) => {
+    const next = typeof updater === "function" ? updater(sessionTypes) : updater;
+    setInternalSessionTypes(next);
+    if (onSessionTypesChange) onSessionTypesChange(next);
+  };
+
   const [selectedDate, setSelectedDate] = useState<string>("2026-10-16");
   const [isRollCallOpen, setIsRollCallOpen] = useState(autoLaunchRollCall);
   const [searchQuery, setSearchQuery] = useState("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Cross-module discrepancy checking for selected session date
+  const discrepanciesForDate = gradeItems && studentGrades ? detectCrossModuleDiscrepancies({
+    date: selectedDate,
+    students,
+    attendanceRecords: records,
+    gradeItems,
+    studentGrades,
+  }) : [];
 
   // Excuse Slips Queue State
   const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>(DEFAULT_EXCUSE_REQUESTS);
@@ -279,6 +332,18 @@ export function ClassAttendanceSheet({
             )}
           </button>
 
+          {/* Multi-Sheet Excel Export Button */}
+          {onExportExcel && (
+            <button
+              onClick={onExportExcel}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer"
+              title="Download institutional multi-sheet Excel (.xlsx)"
+            >
+              <Download className="w-4 h-4 text-[#7C1D26]" />
+              <span>Export Excel</span>
+            </button>
+          )}
+
           {/* Rapid Roll-Call Launcher */}
           <button
             onClick={() => setIsRollCallOpen(true)}
@@ -289,6 +354,21 @@ export function ClassAttendanceSheet({
           </button>
         </div>
       </div>
+
+      {/* Discrepancy Alert for Selected Session */}
+      {discrepanciesForDate.length > 0 && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="font-semibold">
+              Cross-Module Conflict on {selectedDate}: {discrepanciesForDate[0].message}
+            </span>
+          </div>
+          <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded">
+            Review Status
+          </span>
+        </div>
+      )}
 
       {/* Session Controls, Date Picker & Classification Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-zinc-200 shadow-xs">

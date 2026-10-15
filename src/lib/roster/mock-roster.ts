@@ -4,6 +4,8 @@ import type {
   ExcuseRequest,
   GradeItem,
   StudentGrade,
+  AttendanceRecord,
+  SessionType,
 } from "../../types/index.ts";
 
 export const DEFAULT_ROSTER: RosterStudent[] = [
@@ -197,3 +199,27 @@ export const DEFAULT_STUDENT_GRADES: StudentGrade[] = [
   { id: "sg_19", gradeItemId: "gi_pt1", studentId: "stud_05", score: 42 },
   { id: "sg_20", gradeItemId: "gi_ex1", studentId: "stud_05", score: 78 },
 ];
+
+export const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
+  // Session 1: 2026-10-09
+  { id: "att_1", classId: "cls_01", studentId: "stud_01", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
+  { id: "att_2", classId: "cls_01", studentId: "stud_02", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
+  { id: "att_3", classId: "cls_01", studentId: "stud_03", date: "2026-10-09", status: "L", note: "Traffic along Commonwealth", createdAt: "2026-10-09T09:15:00Z" },
+  { id: "att_4", classId: "cls_01", studentId: "stud_04", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
+  { id: "att_5", classId: "cls_01", studentId: "stud_05", date: "2026-10-09", status: "A", note: "Hospitalization for acute viral infection", createdAt: "2026-10-09T09:00:00Z" },
+
+  // Session 2: 2026-10-14
+  { id: "att_6", classId: "cls_01", studentId: "stud_01", date: "2026-10-14", status: "P", createdAt: "2026-10-14T09:00:00Z" },
+  { id: "att_7", classId: "cls_01", studentId: "stud_02", date: "2026-10-14", status: "E", note: "University Debate Championship", createdAt: "2026-10-14T09:00:00Z" },
+  { id: "att_8", classId: "cls_01", studentId: "stud_03", date: "2026-10-14", status: "L", note: "Heavy rain commute", createdAt: "2026-10-14T09:20:00Z" },
+  { id: "att_9", classId: "cls_01", studentId: "stud_04", date: "2026-10-14", status: "L", note: "Transit breakdown", createdAt: "2026-10-14T09:20:00Z" },
+  { id: "att_10", classId: "cls_01", studentId: "stud_05", date: "2026-10-14", status: "A", note: "Absent without permit", createdAt: "2026-10-14T09:00:00Z" },
+];
+
+export const INITIAL_SESSION_DATES = ["2026-10-09", "2026-10-14", "2026-10-16"];
+
+export const INITIAL_SESSION_TYPES: Record<string, SessionType> = {
+  "2026-10-09": "regular",
+  "2026-10-14": "regular",
+  "2026-10-16": "regular",
+};
