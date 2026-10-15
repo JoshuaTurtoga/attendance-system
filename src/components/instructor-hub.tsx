@@ -84,6 +84,7 @@ export function InstructorHub() {
   const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null);
   const [selectedClassTab, setSelectedClassTab] = useState<WorkspaceTab>("roster");
   const [autoLaunchRollCall, setAutoLaunchRollCall] = useState(false);
+  const [autoLaunchGradingToday, setAutoLaunchGradingToday] = useState(false);
   const [viewTab, setViewTab] = useState<InstructorViewTab>("today");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -107,6 +108,7 @@ export function InstructorHub() {
     setSelectedClass(newClass);
     setSelectedClassTab("roster");
     setAutoLaunchRollCall(false);
+    setAutoLaunchGradingToday(false);
   };
 
   // If a class is currently selected, render the isolated Class Workspace (DOCUMENTATION.md § 4.B.5)
@@ -116,10 +118,12 @@ export function InstructorHub() {
         academicClass={selectedClass}
         initialTab={selectedClassTab}
         autoLaunchRollCall={autoLaunchRollCall}
+        autoLaunchGradingToday={autoLaunchGradingToday}
         onBack={() => {
           setSelectedClass(null);
           setSelectedClassTab("roster");
           setAutoLaunchRollCall(false);
+          setAutoLaunchGradingToday(false);
         }}
       />
     );
@@ -267,7 +271,12 @@ export function InstructorHub() {
                       <span>Record Attendance Today</span>
                     </button>
                     <button
-                      onClick={() => setSelectedClass(cls)}
+                      onClick={() => {
+                        setSelectedClass(cls);
+                        setSelectedClassTab("grades");
+                        setAutoLaunchRollCall(false);
+                        setAutoLaunchGradingToday(true);
+                      }}
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs font-medium transition cursor-pointer"
                     >
                       <TrendingUp className="w-3.5 h-3.5 text-[#7C1D26]" />

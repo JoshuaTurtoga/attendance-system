@@ -5,6 +5,7 @@ import type { AcademicClass } from "@/types";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 import { ClassRosterTable } from "./class-roster-table";
 import { ClassAttendanceSheet } from "./class-attendance-sheet";
+import { ClassGradesMatrix } from "./class-grades-matrix";
 import {
   ArrowLeft,
   Users,
@@ -25,6 +26,7 @@ interface ClassWorkspaceProps {
   onBack: () => void;
   initialTab?: WorkspaceTab;
   autoLaunchRollCall?: boolean;
+  autoLaunchGradingToday?: boolean;
 }
 
 export function ClassWorkspace({
@@ -32,6 +34,7 @@ export function ClassWorkspace({
   onBack,
   initialTab = "roster",
   autoLaunchRollCall = false,
+  autoLaunchGradingToday = false,
 }: ClassWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -183,27 +186,10 @@ export function ClassWorkspace({
         )}
 
         {activeTab === "grades" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
-                  Categorized Grade Matrix
-                </h3>
-                <p className="text-xs text-zinc-500">
-                  Quiz, Exam, and Performance Task components with cross-module sync
-                </p>
-              </div>
-            </div>
-            <div className="p-8 rounded-2xl bg-zinc-50 border border-dashed border-zinc-300 text-center space-y-2">
-              <TrendingUp className="w-8 h-8 text-[#7C1D26] mx-auto opacity-70" />
-              <p className="text-sm font-bold text-zinc-800">
-                Gradebook Matrix Ready for Milestone 8/9
-              </p>
-              <p className="text-xs text-zinc-500 max-w-md mx-auto">
-                Will calculate weighted totals, handle unrecorded/blank vs 0, and export to Excel (.xlsx).
-              </p>
-            </div>
-          </div>
+          <ClassGradesMatrix
+            academicClass={academicClass}
+            autoLaunchGradingToday={autoLaunchGradingToday}
+          />
         )}
 
         {activeTab === "notes" && (
