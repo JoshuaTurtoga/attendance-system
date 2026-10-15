@@ -22,102 +22,12 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { DEFAULT_ROSTER, DEFAULT_JOIN_REQUESTS } from "@/lib/roster/mock-roster";
+
 interface ClassRosterTableProps {
   classId: string;
   initialStudents?: RosterStudent[];
 }
-
-const DEFAULT_ROSTER: RosterStudent[] = [
-  {
-    id: "stud_01",
-    classId: "cls_01",
-    studentNumber: "2024-10821",
-    lastName: "Aquino",
-    firstName: "Sofia",
-    middleInitial: "R.",
-    program: "BSCS",
-    academicLevel: "3rd Year",
-  },
-  {
-    id: "stud_02",
-    classId: "cls_01",
-    studentNumber: "2024-10001",
-    lastName: "Bautista",
-    firstName: "Clara",
-    middleInitial: "T.",
-    program: "BSCS",
-    academicLevel: "3rd Year",
-  },
-  {
-    id: "stud_03",
-    classId: "cls_01",
-    studentNumber: "2024-10492",
-    lastName: "Chen",
-    firstName: "Marcus",
-    middleInitial: "L.",
-    program: "BSCS",
-    academicLevel: "3rd Year",
-  },
-  {
-    id: "stud_04",
-    classId: "cls_01",
-    studentNumber: "2024-10555",
-    lastName: "Dela Cruz",
-    firstName: "Juan",
-    middleInitial: "M.",
-    program: "BSIT",
-    academicLevel: "3rd Year",
-  },
-  {
-    id: "stud_05",
-    classId: "cls_01",
-    studentNumber: "2024-10319",
-    lastName: "Zubiri",
-    firstName: "Gabriel",
-    middleInitial: "K.",
-    program: "BSIT",
-    academicLevel: "3rd Year",
-  },
-];
-
-const DEFAULT_JOIN_REQUESTS: JoinRequest[] = [
-  {
-    id: "req_01",
-    classId: "cls_01",
-    studentNumber: "2024-10492",
-    studentName: "Marcus Chen",
-    program: "BSCS",
-    academicLevel: "3rd Year",
-    photoIdUrl:
-      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=160&auto=format&fit=crop&q=80",
-    status: "pending",
-    submittedAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "req_02",
-    classId: "cls_01",
-    studentNumber: "2024-10821",
-    studentName: "Sofia Aquino",
-    program: "BSCS",
-    academicLevel: "3rd Year",
-    photoIdUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&auto=format&fit=crop&q=80",
-    status: "pending",
-    submittedAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: "req_03",
-    classId: "cls_01",
-    studentNumber: "2024-88888",
-    studentName: "David Miller",
-    program: "BSIT",
-    academicLevel: "2nd Year",
-    photoIdUrl:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80",
-    status: "pending",
-    submittedAt: new Date(Date.now() - 10800000).toISOString(),
-  },
-];
 
 type RosterSubTab = "table" | "queue";
 

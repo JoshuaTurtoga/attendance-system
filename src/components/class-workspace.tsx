@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { AcademicClass } from "@/types";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 import { ClassRosterTable } from "./class-roster-table";
+import { ClassAttendanceSheet } from "./class-attendance-sheet";
 import {
   ArrowLeft,
   Users,
@@ -17,15 +18,22 @@ import {
   MapPin,
 } from "lucide-react";
 
+export type WorkspaceTab = "roster" | "attendance" | "grades" | "notes";
+
 interface ClassWorkspaceProps {
   academicClass: AcademicClass;
   onBack: () => void;
+  initialTab?: WorkspaceTab;
+  autoLaunchRollCall?: boolean;
 }
 
-type WorkspaceTab = "roster" | "attendance" | "grades" | "notes";
-
-export function ClassWorkspace({ academicClass, onBack }: ClassWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("roster");
+export function ClassWorkspace({
+  academicClass,
+  onBack,
+  initialTab = "roster",
+  autoLaunchRollCall = false,
+}: ClassWorkspaceProps) {
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = () => {
@@ -168,27 +176,10 @@ export function ClassWorkspace({ academicClass, onBack }: ClassWorkspaceProps) {
         )}
 
         {activeTab === "attendance" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
-                  Attendance Sheet & Sessions
-                </h3>
-                <p className="text-xs text-zinc-500">
-                  Master Grid View and Inline Glass Row-Focus Roll-Call
-                </p>
-              </div>
-            </div>
-            <div className="p-8 rounded-2xl bg-zinc-50 border border-dashed border-zinc-300 text-center space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-[#7C1D26] mx-auto opacity-70" />
-              <p className="text-sm font-bold text-zinc-800">
-                Attendance Matrix & Rapid Roll-Call Ready for Milestone 6/7
-              </p>
-              <p className="text-xs text-zinc-500 max-w-md mx-auto">
-                Will bind with single-key shortcuts (P, L, E, A) and sequential row glide.
-              </p>
-            </div>
-          </div>
+          <ClassAttendanceSheet
+            academicClass={academicClass}
+            autoLaunchRollCall={autoLaunchRollCall}
+          />
         )}
 
         {activeTab === "grades" && (

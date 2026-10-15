@@ -5,7 +5,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import type { AcademicClass } from "@/types";
 import { ClassScheduleCalendar } from "./class-schedule-calendar";
 import { CreateClassModal } from "./create-class-modal";
-import { ClassWorkspace } from "./class-workspace";
+import { ClassWorkspace, type WorkspaceTab } from "./class-workspace";
 import {
   Calendar,
   Clock,
@@ -82,6 +82,8 @@ export function InstructorHub() {
   const { currentUser } = useAuth();
   const [classes, setClasses] = useState<AcademicClass[]>(INITIAL_CLASSES);
   const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null);
+  const [selectedClassTab, setSelectedClassTab] = useState<WorkspaceTab>("roster");
+  const [autoLaunchRollCall, setAutoLaunchRollCall] = useState(false);
   const [viewTab, setViewTab] = useState<InstructorViewTab>("today");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -103,6 +105,8 @@ export function InstructorHub() {
   const handleClassCreated = (newClass: AcademicClass) => {
     setClasses((prev) => [newClass, ...prev]);
     setSelectedClass(newClass);
+    setSelectedClassTab("roster");
+    setAutoLaunchRollCall(false);
   };
 
   // If a class is currently selected, render the isolated Class Workspace (DOCUMENTATION.md § 4.B.5)
@@ -110,7 +114,13 @@ export function InstructorHub() {
     return (
       <ClassWorkspace
         academicClass={selectedClass}
-        onBack={() => setSelectedClass(null)}
+        initialTab={selectedClassTab}
+        autoLaunchRollCall={autoLaunchRollCall}
+        onBack={() => {
+          setSelectedClass(null);
+          setSelectedClassTab("roster");
+          setAutoLaunchRollCall(false);
+        }}
       />
     );
   }
@@ -246,7 +256,11 @@ export function InstructorHub() {
                   {/* Quick Actions (DOCUMENTATION.md § 4.B.2) */}
                   <div className="pt-5 mt-5 border-t border-zinc-100 space-y-2">
                     <button
-                      onClick={() => setSelectedClass(cls)}
+                      onClick={() => {
+                        setSelectedClass(cls);
+                        setSelectedClassTab("attendance");
+                        setAutoLaunchRollCall(true);
+                      }}
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
