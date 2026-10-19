@@ -223,7 +223,7 @@ export function StudentHub({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8">
       {/* Toast Notification */}
       {joinSuccessBanner && (
         <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
@@ -235,7 +235,10 @@ export function StudentHub({
       )}
 
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]">
+      <div
+        className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]"
+        style={{ "--i": 0 } as React.CSSProperties}
+      >
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#7C1D26]">
             <GraduationCap className="w-4 h-4" />
@@ -294,7 +297,10 @@ export function StudentHub({
       </div>
 
       {/* Sub-Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-zinc-200/80 pb-1">
+      <div
+        className="stagger-block flex items-center gap-2 border-b border-zinc-200/80 pb-1"
+        style={{ "--i": 1 } as React.CSSProperties}
+      >
         <button
           onClick={() => setActiveTab("today")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
@@ -354,7 +360,10 @@ export function StudentHub({
       {/* ======================================================= */}
       {activeTab === "today" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div
+            className="stagger-block flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div>
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 Today&apos;s Scheduled Classes &amp; Real-Time Standing
@@ -373,7 +382,7 @@ export function StudentHub({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {todayClasses.map((cls) => {
+            {todayClasses.map((cls, idx) => {
               const summary = computeStudentPersonalSummary({
                 studentId,
                 classId: cls.id,
@@ -401,7 +410,8 @@ export function StudentHub({
                 <div
                   key={cls.id}
                   onClick={() => setSelectedClassForDetail(cls)}
-                  className="p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-5 cursor-pointer group"
+                  className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-5 cursor-pointer group"
+                  style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -499,7 +509,10 @@ export function StudentHub({
       {/* ======================================================= */}
       {activeTab === "classes" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div
+            className="stagger-block flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div>
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 My Enrolled Classes &amp; Academic Performance
@@ -511,7 +524,7 @@ export function StudentHub({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {enrolledClasses.map((cls) => {
+            {enrolledClasses.map((cls, idx) => {
               const summary = computeStudentPersonalSummary({
                 studentId,
                 classId: cls.id,
@@ -524,7 +537,8 @@ export function StudentHub({
                 <div
                   key={cls.id}
                   onClick={() => setSelectedClassForDetail(cls)}
-                  className="p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-4 cursor-pointer group"
+                  className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-4 cursor-pointer group"
+                  style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -602,7 +616,10 @@ export function StudentHub({
       {/* ======================================================= */}
       {activeTab === "timetable" && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80">
+          <div
+            className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26]">
@@ -630,7 +647,10 @@ export function StudentHub({
           </div>
 
           {/* Timetable Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            className="stagger-block grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             {unifiedTimetable.map((item) => (
               <div
                 key={item.id}
@@ -695,7 +715,10 @@ export function StudentHub({
       {/* ======================================================= */}
       {activeTab === "requests" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div
+            className="stagger-block flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div>
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 Class Join Applications &amp; Excuse Slip Resolutions
@@ -713,7 +736,10 @@ export function StudentHub({
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div
+            className="stagger-block space-y-4"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Submitted Class Join Applications
             </h3>

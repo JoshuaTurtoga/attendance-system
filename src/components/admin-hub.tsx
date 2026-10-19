@@ -267,7 +267,7 @@ export function AdminHub({
   const studentCount = users.filter((u) => u.roles.includes("student")).length;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8">
       {/* Toast notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-zinc-950 text-white shadow-2xl border border-zinc-800 flex items-center gap-3 text-xs font-semibold animate-in slide-in-from-bottom-2 duration-200">
@@ -277,7 +277,10 @@ export function AdminHub({
       )}
 
       {/* Strict Privacy Banner (DOCUMENTATION.md § 3.5) */}
-      <div className="flex items-start gap-4 p-5 rounded-3xl bg-amber-50/80 border border-amber-200/90 text-amber-950 shadow-xs">
+      <div
+        className="stagger-block flex items-start gap-4 p-5 rounded-3xl bg-amber-50/80 border border-amber-200/90 text-amber-950 shadow-xs"
+        style={{ "--i": 0 } as React.CSSProperties}
+      >
         <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-800">
           <ShieldAlert className="w-5 h-5" />
         </div>
@@ -302,7 +305,10 @@ export function AdminHub({
       </div>
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-3">
+      <div
+        className="stagger-block flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-3"
+        style={{ "--i": 1 } as React.CSSProperties}
+      >
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("overview")}
@@ -373,9 +379,12 @@ export function AdminHub({
 
       {/* TAB 1: SYSTEM OVERSIGHT */}
       {activeTab === "overview" && (
-        <div className="space-y-8 animate-in fade-in duration-200">
+        <div className="space-y-8">
           {/* Admin Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            className="stagger-block grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div className="p-5 rounded-3xl bg-white border border-zinc-200/80 shadow-xs">
               <div className="flex items-center justify-between text-zinc-400">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
@@ -436,7 +445,10 @@ export function AdminHub({
           </div>
 
           {/* Quick Actions & Governance Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            className="stagger-block grid grid-cols-1 md:grid-cols-2 gap-6"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             <div className="p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#7C1D26]/10 text-[#7C1D26] flex items-center justify-center">
@@ -501,7 +513,10 @@ export function AdminHub({
           </div>
 
           {/* Institutional Compliance & Audit Card */}
-          <div className="p-6 rounded-3xl bg-zinc-900 text-white shadow-xl space-y-4">
+          <div
+            className="stagger-block p-6 rounded-3xl bg-zinc-900 text-white shadow-xl space-y-4"
+            style={{ "--i": 4 } as React.CSSProperties}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" />
@@ -522,9 +537,12 @@ export function AdminHub({
 
       {/* TAB 2: USER DIRECTORY & MANAGEMENT */}
       {activeTab === "users" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           {/* Controls Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-zinc-200/80 shadow-xs">
+          <div
+            className="stagger-block flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-zinc-200/80 shadow-xs"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             {/* Search */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -556,7 +574,10 @@ export function AdminHub({
           </div>
 
           {/* Users Table */}
-          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden">
+          <div
+            className="stagger-block bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -670,9 +691,12 @@ export function AdminHub({
 
       {/* TAB 3: INSTITUTIONAL CLASS OVERSIGHT */}
       {activeTab === "classes" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           {/* Read-Only Notice */}
-          <div className="p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs flex items-center justify-between">
+          <div
+            className="stagger-block p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div className="flex items-center gap-2.5">
               <Info className="w-4 h-4 text-zinc-500 shrink-0" />
               <span>
@@ -685,7 +709,10 @@ export function AdminHub({
           </div>
 
           {/* Class Search Bar */}
-          <div className="relative">
+          <div
+            className="stagger-block relative"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -697,7 +724,10 @@ export function AdminHub({
           </div>
 
           {/* Classes Table */}
-          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden">
+          <div
+            className="stagger-block bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden"
+            style={{ "--i": 4 } as React.CSSProperties}
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -768,8 +798,11 @@ export function AdminHub({
 
       {/* TAB 4: INSTITUTIONAL POLICY & TERM SETTINGS */}
       {activeTab === "policies" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6">
+          <div
+            className="stagger-block flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <div>
               <h3 className="text-base font-bold text-zinc-950">
                 Institutional Policy Governance
@@ -787,7 +820,10 @@ export function AdminHub({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            className="stagger-block grid grid-cols-1 md:grid-cols-2 gap-6"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
             {/* Term & Calendar Card */}
             <div className="p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
@@ -848,7 +884,10 @@ export function AdminHub({
           </div>
 
           {/* Department Catalog */}
-          <div className="p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-xs space-y-4">
+          <div
+            className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-xs space-y-4"
+            style={{ "--i": 4 } as React.CSSProperties}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Building2 className="w-4 h-4 text-[#7C1D26]" />

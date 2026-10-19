@@ -194,3 +194,139 @@ body {
   }
 }
 
+/* ==========================================================================
+   Staggered Page & Tab Transition Engine (BrewedOps Motion Library)
+   Synchronized with Notch Tab Navigation (587ms total duration)
+   ========================================================================== */
+
+:root {
+  --stagger-leave-dur: 190ms;
+  --stagger-arrive-dur: 340ms;
+  --stagger-step-delay: 35ms;
+  --stagger-max-delay: 120ms;
+  --stagger-ease-arrive: cubic-bezier(0.32, 0.72, 0, 1);
+  --stagger-ease-leave: ease-in;
+}
+
+/* Top-level blocks marked for staggered cascade */
+.stagger-block {
+  view-transition-class: stagger-block;
+  will-change: opacity, transform;
+}
+
+/* Stagger container with pointer events locking during transition */
+.stagger-container {
+  position: relative;
+  width: 100%;
+}
+
+.stagger-container[data-transitioning="true"],
+.stagger-container[data-stagger-phase="leaving"],
+.stagger-container[data-stagger-phase="arriving"] {
+  user-select: none;
+}
+
+/* Leave: opacity 1 -> 0, translateY(10px) scale(0.94) over 190ms ease-in */
+@keyframes staggerLeave {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+}
+
+/* Arrive: opacity 0, translateY(10px) scale(0.94) -> opacity 1, transform: none over 340ms cubic-bezier(0.32, 0.72, 0, 1) */
+@keyframes staggerArrive {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* DOM-coordinated phase execution synchronized with 587ms notch tab */
+.stagger-container[data-stagger-phase="leaving"] .stagger-block {
+  animation: staggerLeave var(--stagger-leave-dur) var(--stagger-ease-leave) both;
+  animation-delay: min(calc(var(--i, 0) * var(--stagger-step-delay)), var(--stagger-max-delay));
+}
+
+.stagger-container[data-stagger-phase="arriving"] .stagger-block {
+  animation: staggerArrive var(--stagger-arrive-dur) var(--stagger-ease-arrive) both;
+  animation-delay: min(calc(var(--i, 0) * var(--stagger-step-delay)), var(--stagger-max-delay));
+}
+
+/* CRITICAL: Never let View Transition animate root! Root and sidebar must stay completely static */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+}
+
+/* View Transitions API integration for named blocks */
+::view-transition-old(.stagger-block) {
+  animation: staggerLeave var(--stagger-leave-dur) var(--stagger-ease-leave) both;
+  animation-delay: min(calc(var(--i, 0) * var(--stagger-step-delay)), var(--stagger-max-delay));
+}
+
+::view-transition-new(.stagger-block) {
+  animation: staggerArrive var(--stagger-arrive-dur) var(--stagger-ease-arrive) both;
+  animation-delay: min(calc(var(--i, 0) * var(--stagger-step-delay)), var(--stagger-max-delay));
+}
+
+/* Under prefers-reduced-motion: reduce, use a single quick cross-fade without transforms */
+@keyframes quickCrossFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes quickCrossFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-block {
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+
+  .stagger-container[data-stagger-phase="leaving"] .stagger-block {
+    animation: quickCrossFadeOut 150ms ease both !important;
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+
+  .stagger-container[data-stagger-phase="arriving"] .stagger-block {
+    animation: quickCrossFadeIn 150ms ease both !important;
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+
+  ::view-transition-old(.stagger-block) {
+    animation: quickCrossFadeOut 150ms ease both !important;
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+
+  ::view-transition-new(.stagger-block) {
+    animation: quickCrossFadeIn 150ms ease both !important;
+    animation-delay: 0ms !important;
+    transform: none !important;
+  }
+}
+
+
+

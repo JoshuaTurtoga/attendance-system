@@ -9,6 +9,7 @@ import {
 } from "@/components/instructor-hub";
 import { AdminHub, type AdminTab } from "@/components/admin-hub";
 import { StudentHub, type StudentTab } from "@/components/student-hub";
+import { StaggeredView } from "@/components/staggered-view";
 
 export default function HomePage() {
   const { activeView } = useAuth();
@@ -46,24 +47,29 @@ export default function HomePage() {
       {/* Adjacent White Content Panel (meets the active tab bulge seamlessly) */}
       <div className="flex-1 flex flex-col min-h-screen bg-white">
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8">
-          {activeView === "instructor" && (
-            <InstructorHub
-              activeTab={instructorTab}
-              onTabChange={setInstructorTab}
-            />
-          )}
-          {activeView === "admin" && (
-            <AdminHub
-              activeTab={adminTab}
-              onTabChange={setAdminTab}
-            />
-          )}
-          {activeView === "student" && (
-            <StudentHub
-              activeTab={studentTab}
-              onTabChange={setStudentTab}
-            />
-          )}
+          <StaggeredView
+            transitionKey={`${activeView}-${currentTabId}`}
+            blockCount={5}
+          >
+            {activeView === "instructor" && (
+              <InstructorHub
+                activeTab={instructorTab}
+                onTabChange={setInstructorTab}
+              />
+            )}
+            {activeView === "admin" && (
+              <AdminHub
+                activeTab={adminTab}
+                onTabChange={setAdminTab}
+              />
+            )}
+            {activeView === "student" && (
+              <StudentHub
+                activeTab={studentTab}
+                onTabChange={setStudentTab}
+              />
+            )}
+          </StaggeredView>
         </main>
 
         <footer className="w-full border-t border-zinc-100 py-6 px-4 md:px-8 text-center text-xs text-zinc-400">

@@ -146,9 +146,12 @@ export function InstructorHub({
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8">
       {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]">
+      <div
+        className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]"
+        style={{ "--i": 0 } as React.CSSProperties}
+      >
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#7C1D26]">
             <Sparkles className="w-3.5 h-3.5" />
@@ -174,7 +177,10 @@ export function InstructorHub({
       </div>
 
       {/* Navigation Sub-Tabs: Today vs Weekly Timetable vs All Classes */}
-      <div className="flex items-center gap-2 border-b border-zinc-200/80 pb-1">
+      <div
+        className="stagger-block flex items-center gap-2 border-b border-zinc-200/80 pb-1"
+        style={{ "--i": 1 } as React.CSSProperties}
+      >
         <button
           onClick={() => setViewTab("today")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
@@ -214,8 +220,11 @@ export function InstructorHub({
 
       {/* View: Today's Dashboard */}
       {viewTab === "today" && (
-        <div className="space-y-5 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
+        <div className="space-y-5">
+          <div
+            className="stagger-block flex items-center justify-between"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
             <h2 className="text-lg font-bold text-zinc-900 tracking-tight flex items-center gap-2">
               <Calendar className="w-4 h-4 text-[#7C1D26]" />
               <span>Today&apos;s Classes & Quick Actions</span>
@@ -224,12 +233,13 @@ export function InstructorHub({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {classes.map((cls) => {
+            {classes.map((cls, idx) => {
               const primaryBlock = cls.schedule[0];
               return (
                 <div
                   key={cls.id}
-                  className="group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-l-4 border-l-[#7C1D26]"
+                  className="stagger-block group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-l-4 border-l-[#7C1D26]"
+                  style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
@@ -308,19 +318,25 @@ export function InstructorHub({
 
       {/* View: Weekly Schedule Timetable Grid (DOCUMENTATION.md § 4.B.3) */}
       {viewTab === "calendar" && (
-        <ClassScheduleCalendar
-          classes={classes}
-          onSelectClass={(cls) => setSelectedClass(cls)}
-        />
+        <div
+          className="stagger-block"
+          style={{ "--i": 2 } as React.CSSProperties}
+        >
+          <ClassScheduleCalendar
+            classes={classes}
+            onSelectClass={(cls) => setSelectedClass(cls)}
+          />
+        </div>
       )}
 
       {/* View: All Classes Grid */}
       {viewTab === "classes" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
-          {classes.map((cls) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {classes.map((cls, idx) => (
             <div
               key={cls.id}
-              className="p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition space-y-4"
+              className="stagger-block p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition space-y-4"
+              style={{ "--i": 2 + idx } as React.CSSProperties}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
