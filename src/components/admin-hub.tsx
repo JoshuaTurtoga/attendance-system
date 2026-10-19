@@ -170,10 +170,25 @@ const INITIAL_ADMIN_CLASSES: AdminClassOverview[] = [
   },
 ];
 
-type AdminTab = "overview" | "users" | "classes" | "policies";
+export type AdminTab = "overview" | "users" | "classes" | "policies";
 
-export function AdminHub() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+export interface AdminHubProps {
+  activeTab?: AdminTab;
+  onTabChange?: (tab: AdminTab) => void;
+}
+
+export function AdminHub({
+  activeTab: propActiveTab,
+  onTabChange,
+}: AdminHubProps = {}) {
+  const [internalTab, setInternalTab] = useState<AdminTab>("overview");
+  const activeTab = propActiveTab ?? internalTab;
+  const setActiveTab = (tab: AdminTab) => {
+    setInternalTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_ADMIN_USERS);
   const [classes] = useState<AdminClassOverview[]>(INITIAL_ADMIN_CLASSES);
 

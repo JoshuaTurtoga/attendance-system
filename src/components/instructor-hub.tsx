@@ -76,17 +76,33 @@ const INITIAL_CLASSES: AcademicClass[] = [
   },
 ];
 
-type InstructorViewTab = "today" | "calendar" | "classes";
+export type InstructorViewTab = "today" | "calendar" | "classes";
 
-export function InstructorHub() {
+export interface InstructorHubProps {
+  activeTab?: InstructorViewTab;
+  onTabChange?: (tab: InstructorViewTab) => void;
+}
+
+export function InstructorHub({
+  activeTab: propActiveTab,
+  onTabChange,
+}: InstructorHubProps = {}) {
   const { currentUser } = useAuth();
   const [classes, setClasses] = useState<AcademicClass[]>(INITIAL_CLASSES);
   const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null);
   const [selectedClassTab, setSelectedClassTab] = useState<WorkspaceTab>("roster");
   const [autoLaunchRollCall, setAutoLaunchRollCall] = useState(false);
   const [autoLaunchGradingToday, setAutoLaunchGradingToday] = useState(false);
-  const [viewTab, setViewTab] = useState<InstructorViewTab>("today");
+  const [internalViewTab, setInternalViewTab] = useState<InstructorViewTab>("today");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const viewTab = propActiveTab ?? internalViewTab;
+  const setViewTab = (tab: InstructorViewTab) => {
+    setInternalViewTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,

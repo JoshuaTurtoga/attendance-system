@@ -39,7 +39,17 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-export function StudentHub() {
+export type StudentTab = "today" | "classes" | "timetable" | "requests";
+
+export interface StudentHubProps {
+  activeTab?: StudentTab;
+  onTabChange?: (tab: StudentTab) => void;
+}
+
+export function StudentHub({
+  activeTab: propActiveTab,
+  onTabChange,
+}: StudentHubProps = {}) {
   const { currentUser } = useAuth();
 
   // Active student identity
@@ -50,9 +60,14 @@ export function StudentHub() {
   const academicLevel = "3rd Year";
 
   // Sub-Navigation Tabs
-  const [activeTab, setActiveTab] = useState<
-    "today" | "classes" | "timetable" | "requests"
-  >("today");
+  const [internalTab, setInternalTab] = useState<StudentTab>("today");
+  const activeTab = propActiveTab ?? internalTab;
+  const setActiveTab = (tab: StudentTab) => {
+    setInternalTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
 
   // Enrolled university classes
   const [enrolledClasses] = useState<AcademicClass[]>([

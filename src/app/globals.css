@@ -83,3 +83,114 @@ body {
   background-color: var(--pill-a-bg);
   border: 1px solid var(--pill-a-border);
 }
+
+/* ============================================================
+   Curved Inverted Cutout Sidebar Navigation System
+   Active item becomes a tab cut into the sidebar's right edge;
+   the white content panel appears to bulge out and meet the item.
+   ============================================================ */
+
+.curved-sidebar {
+  --sidebar-bg: #EAEAEF;
+  --panel-color: #FFFFFF;
+  --item-height: 48px;
+  --sidebar-pad-right: 16px;
+  --i: 0;
+
+  background-color: var(--sidebar-bg);
+  border-right: none !important;
+  padding-right: var(--sidebar-pad-right);
+}
+
+.curved-sidebar .nav-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* margin-right equal to the sidebar's right padding so the list reaches the edge */
+  margin-right: calc(-1 * var(--sidebar-pad-right));
+}
+
+.curved-sidebar .tab {
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 0;
+  height: var(--item-height);
+  background-color: var(--panel-color);
+  border-radius: 14px 0 0 14px;
+  transform: translateY(calc(var(--i) * var(--item-height)));
+  transition: transform 587ms linear(0, 0.094 5.6%, 0.274 11.1%, 0.455 16.7%, 0.608 22.2%, 0.726 27.8%, 0.812 33.3%, 0.873 38.9%, 0.916 44.4%, 0.944 50%, 0.964 55.6%, 0.976 61.1%, 0.985 66.7%, 0.99 72.2%, 1 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Upper 14px concave inverted corner connecting tab to panel */
+.curved-sidebar .tab::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: -14px;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 0 0, transparent 14px, var(--panel-color) 14.5px);
+  pointer-events: none;
+}
+
+/* Lower 14px concave inverted corner connecting tab to panel */
+.curved-sidebar .tab::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -14px;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 0 100%, transparent 14px, var(--panel-color) 14.5px);
+  pointer-events: none;
+}
+
+/* Items sit above it (z-index: 1) and only change label color and weight */
+.curved-sidebar .nav-item {
+  position: relative;
+  z-index: 1;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: 100%;
+  height: var(--item-height);
+  padding: 0 16px 0 20px;
+  background: transparent;
+  border: none;
+  text-decoration: none;
+  color: var(--ink-secondary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: color 150ms ease;
+  white-space: nowrap;
+}
+
+.curved-sidebar .nav-item:hover {
+  color: var(--ink-primary);
+}
+
+.curved-sidebar .nav-item[aria-current="page"] {
+  color: var(--primary-garnet);
+  font-weight: 600;
+}
+
+/* Visible :focus-visible rings */
+.curved-sidebar .nav-item:focus-visible {
+  outline: 2px solid var(--primary-garnet);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Reduced motion jumps the tab without a transition */
+@media (prefers-reduced-motion: reduce) {
+  .curved-sidebar .tab {
+    transition: none !important;
+  }
+}
+
