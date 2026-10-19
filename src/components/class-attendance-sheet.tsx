@@ -34,7 +34,6 @@ import {
   Plus,
   CalendarDays,
   X,
-  Download,
 } from "lucide-react";
 
 interface ClassAttendanceSheetProps {
@@ -48,7 +47,6 @@ interface ClassAttendanceSheetProps {
   onSessionTypesChange?: (types: Record<string, SessionType>) => void;
   gradeItems?: GradeItem[];
   studentGrades?: StudentGrade[];
-  onExportExcel?: () => void;
 }
 
 const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
@@ -86,7 +84,6 @@ export function ClassAttendanceSheet({
   onSessionTypesChange,
   gradeItems,
   studentGrades,
-  onExportExcel,
 }: ClassAttendanceSheetProps) {
   const [students] = useState<RosterStudent[]>(DEFAULT_ROSTER);
   const [internalRecords, setInternalRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
@@ -331,18 +328,6 @@ export function ClassAttendanceSheet({
               <span className="text-zinc-400 text-[10px] font-normal">0 pending</span>
             )}
           </button>
-
-          {/* Multi-Sheet Excel Export Button */}
-          {onExportExcel && (
-            <button
-              onClick={onExportExcel}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer"
-              title="Download institutional multi-sheet Excel (.xlsx)"
-            >
-              <Download className="w-4 h-4 text-[#7C1D26]" />
-              <span>Export Excel</span>
-            </button>
-          )}
 
           {/* Rapid Roll-Call Launcher */}
           <button

@@ -25,11 +25,7 @@ import { ClassRosterTable } from "./class-roster-table";
 import { ClassAttendanceSheet } from "./class-attendance-sheet";
 import { ClassGradesMatrix } from "./class-grades-matrix";
 import {
-  ArrowLeft,
-  Users,
   CheckCircle2,
-  TrendingUp,
-  FileText,
   Copy,
   Check,
   Calendar,
@@ -43,20 +39,17 @@ export type WorkspaceTab = "roster" | "attendance" | "grades" | "notes";
 
 interface ClassWorkspaceProps {
   academicClass: AcademicClass;
-  onBack: () => void;
-  initialTab?: WorkspaceTab;
+  activeTab: WorkspaceTab;
   autoLaunchRollCall?: boolean;
   autoLaunchGradingToday?: boolean;
 }
 
 export function ClassWorkspace({
   academicClass,
-  onBack,
-  initialTab = "roster",
+  activeTab,
   autoLaunchRollCall = false,
   autoLaunchGradingToday = false,
 }: ClassWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>(initialTab);
   const [copiedCode, setCopiedCode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -183,25 +176,17 @@ export function ClassWorkspace({
         </div>
       )}
 
-      {/* Workspace Navigation Header */}
+      {/* Class Identity Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border border-zinc-200/80">
         <div>
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-[#7C1D26] transition mb-3 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Instructor Schedule</span>
-          </button>
-
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="text-sm font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-1 rounded-lg border border-[#7C1D26]/20">
+            <span className="text-sm font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-1 rounded-lg border border-[#7C1D26]/20 whitespace-nowrap">
               {academicClass.courseCode} • {academicClass.section}
             </span>
-            <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200/80">
+            <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200/80 whitespace-nowrap">
               {academicClass.classType}
             </span>
-            <span className="text-xs text-zinc-400 font-medium">
+            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
               {academicClass.units} Units • {academicClass.term}
             </span>
           </div>
@@ -211,19 +196,19 @@ export function ClassWorkspace({
           </h1>
 
           {/* Schedule Badges */}
-          <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-zinc-600">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-3 text-xs text-zinc-600">
             {academicClass.schedule.map((block, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100/80 border border-zinc-200/60 font-medium"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100/80 border border-zinc-200/60 font-medium whitespace-nowrap"
               >
-                <Calendar className="w-3 h-3 text-[#7C1D26]" />
+                <Calendar className="w-3 h-3 text-[#7C1D26] shrink-0" />
                 <span>{block.dayOfWeek}</span>
-                <Clock className="w-3 h-3 text-zinc-400 ml-1" />
+                <Clock className="w-3 h-3 text-zinc-400 ml-1 shrink-0" />
                 <span>
                   {formatTime12Hour(block.startTime)} - {formatTime12Hour(block.endTime)}
                 </span>
-                <MapPin className="w-3 h-3 text-zinc-400 ml-1" />
+                <MapPin className="w-3 h-3 text-zinc-400 ml-1 shrink-0" />
                 <span className="text-zinc-800 font-semibold">{block.room}</span>
               </div>
             ))}
@@ -235,25 +220,25 @@ export function ClassWorkspace({
           <div className="flex items-center gap-2">
             <button
               onClick={handleExportWorkbook}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 hover:border-[#7C1D26]/50 hover:bg-zinc-50 text-zinc-700 text-xs font-semibold shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 hover:border-[#7C1D26]/50 hover:bg-zinc-50 text-zinc-700 text-xs font-semibold shadow-xs transition cursor-pointer whitespace-nowrap"
               title="Download institutional multi-sheet Excel (.xlsx)"
             >
-              <Download className="w-3.5 h-3.5 text-[#7C1D26]" />
+              <Download className="w-3.5 h-3.5 text-[#7C1D26] shrink-0" />
               <span>Export Excel Record</span>
             </button>
           </div>
 
           <div>
-            <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider text-right">
+            <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider md:text-right">
               Class Join Code
             </p>
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono text-lg font-bold text-[#7C1D26] bg-white px-3 py-1.5 rounded-xl border border-zinc-200 shadow-xs tracking-wider">
+              <span className="font-mono text-lg font-bold text-[#7C1D26] bg-white px-3 py-1.5 rounded-xl border border-zinc-200 shadow-xs tracking-wider whitespace-nowrap">
                 {academicClass.joinCode}
               </span>
               <button
                 onClick={handleCopyCode}
-                className="p-2 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-600 transition shadow-xs cursor-pointer"
+                className="p-2 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-600 transition shadow-xs cursor-pointer shrink-0"
                 title="Copy join code"
               >
                 {copiedCode ? (
@@ -263,66 +248,15 @@ export function ClassWorkspace({
                 )}
               </button>
             </div>
-            <span className="text-[10px] text-zinc-400 mt-1 block text-right">
+            <span className="text-[10px] text-zinc-400 mt-1 block md:text-right">
               Share code with students
             </span>
           </div>
         </div>
       </div>
 
-      {/* 4 Workspace Tabs (DOCUMENTATION.md § 4.B.5) */}
-      <div className="flex items-center gap-2 border-b border-zinc-200/80 pb-1">
-        <button
-          onClick={() => setActiveTab("roster")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "roster"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Tab 1: Class List & Roster</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("attendance")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "attendance"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Tab 2: Attendance System</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("grades")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "grades"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Tab 3: Categorized Grades</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("notes")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "notes"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Tab 4: Notes</span>
-        </button>
-      </div>
-
-      {/* Tab Content Panes with Live State Sync */}
-      <div className="p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px]">
+      {/* Tab Content Panes with Live State Sync — navigation driven by sidebar */}
+      <div className="p-4 md:p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px]">
         {activeTab === "roster" && (
           <ClassRosterTable classId={academicClass.id} />
         )}
@@ -339,7 +273,6 @@ export function ClassWorkspace({
             onSessionTypesChange={setSessionTypes}
             gradeItems={gradeItems}
             studentGrades={studentGrades}
-            onExportExcel={handleExportWorkbook}
           />
         )}
 
@@ -354,7 +287,6 @@ export function ClassWorkspace({
             sharedStudentGrades={studentGrades}
             onStudentGradesChange={setStudentGrades}
             onAttendanceAutoGenerated={handleAttendanceAutoGenerated}
-            onExportExcel={handleExportWorkbook}
           />
         )}
 

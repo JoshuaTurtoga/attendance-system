@@ -19,6 +19,7 @@ import {
   KeyRound,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
 import type { Role } from "@/types";
 import {
@@ -104,6 +105,7 @@ export function Sidebar({
     switchView,
     selectPersona,
     activePersonaKey,
+    signOut,
   } = useAuth();
 
   const [internalIndex, setInternalIndex] = useState(defaultActiveIndex);
@@ -457,6 +459,18 @@ export function Sidebar({
             >
               <ArrowLeftRight className="w-3 h-3 text-zinc-500" />
               <span>Switch Demo Persona</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileDrawerOpen(false);
+                signOut();
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-[#7C1D26] bg-rose-50 hover:bg-rose-100 transition cursor-pointer border border-[#7C1D26]/20 whitespace-nowrap"
+            >
+              <LogOut className="w-3 h-3" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>

@@ -24,7 +24,6 @@ import {
   Building2,
   Calendar,
   Clock,
-  Sparkles,
   Info,
   ShieldCheck,
   Check,
@@ -174,21 +173,9 @@ export type AdminTab = "overview" | "users" | "classes" | "policies";
 
 export interface AdminHubProps {
   activeTab?: AdminTab;
-  onTabChange?: (tab: AdminTab) => void;
 }
 
-export function AdminHub({
-  activeTab: propActiveTab,
-  onTabChange,
-}: AdminHubProps = {}) {
-  const [internalTab, setInternalTab] = useState<AdminTab>("overview");
-  const activeTab = propActiveTab ?? internalTab;
-  const setActiveTab = (tab: AdminTab) => {
-    setInternalTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    }
-  };
+export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
   const [users, setUsers] = useState<UserProfile[]>(INITIAL_ADMIN_USERS);
   const [classes] = useState<AdminClassOverview[]>(INITIAL_ADMIN_CLASSES);
 
@@ -304,79 +291,6 @@ export function AdminHub({
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs */}
-      <div
-        className="stagger-block flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-3"
-        style={{ "--i": 1 } as React.CSSProperties}
-      >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === "overview"
-                ? "bg-[#7C1D26] text-white shadow-xs"
-                : "bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            System Oversight
-          </button>
-
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === "users"
-                ? "bg-[#7C1D26] text-white shadow-xs"
-                : "bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            User Directory ({users.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("classes")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === "classes"
-                ? "bg-[#7C1D26] text-white shadow-xs"
-                : "bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            Class Oversight ({classes.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("policies")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === "policies"
-                ? "bg-[#7C1D26] text-white shadow-xs"
-                : "bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200"
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Policy & Terms
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsProvisionModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-xs transition cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            Provision Faculty
-          </button>
-          <button
-            onClick={() => setIsTermConfigModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs font-semibold transition cursor-pointer"
-          >
-            <Settings className="w-4 h-4 text-zinc-500" />
-            Settings
-          </button>
-        </div>
-      </div>
-
       {/* TAB 1: SYSTEM OVERSIGHT */}
       {activeTab === "overview" && (
         <div className="space-y-8">
@@ -467,15 +381,9 @@ export function AdminHub({
               <div className="pt-2 flex items-center gap-3">
                 <button
                   onClick={() => setIsProvisionModalOpen(true)}
-                  className="px-4 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold transition cursor-pointer whitespace-nowrap"
                 >
                   Provision New Instructor
-                </button>
-                <button
-                  onClick={() => setActiveTab("users")}
-                  className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold transition cursor-pointer"
-                >
-                  View Directory
                 </button>
               </div>
             </div>
@@ -498,15 +406,9 @@ export function AdminHub({
               <div className="pt-2 flex items-center gap-3">
                 <button
                   onClick={() => setIsTermConfigModalOpen(true)}
-                  className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition cursor-pointer whitespace-nowrap"
                 >
-                  Configure Term & Rules
-                </button>
-                <button
-                  onClick={() => setActiveTab("classes")}
-                  className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold transition cursor-pointer"
-                >
-                  Review Active Classes
+                  Configure Term &amp; Rules
                 </button>
               </div>
             </div>

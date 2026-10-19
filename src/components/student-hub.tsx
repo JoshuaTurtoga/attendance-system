@@ -27,14 +27,12 @@ import { StudentExternalClassModal } from "./student-external-class-modal";
 import {
   GraduationCap,
   KeyRound,
-  BookOpen,
   Calendar,
   Clock,
   MapPin,
   CheckCircle2,
   Bell,
   Plus,
-  ShieldCheck,
   ArrowRight,
   ChevronRight,
 } from "lucide-react";
@@ -43,13 +41,9 @@ export type StudentTab = "today" | "classes" | "timetable" | "requests";
 
 export interface StudentHubProps {
   activeTab?: StudentTab;
-  onTabChange?: (tab: StudentTab) => void;
 }
 
-export function StudentHub({
-  activeTab: propActiveTab,
-  onTabChange,
-}: StudentHubProps = {}) {
+export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
   const { currentUser } = useAuth();
 
   // Active student identity
@@ -58,16 +52,6 @@ export function StudentHub({
   const studentName = `${currentUser.firstName} ${currentUser.lastName}`;
   const program = "BSCS";
   const academicLevel = "3rd Year";
-
-  // Sub-Navigation Tabs
-  const [internalTab, setInternalTab] = useState<StudentTab>("today");
-  const activeTab = propActiveTab ?? internalTab;
-  const setActiveTab = (tab: StudentTab) => {
-    setInternalTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    }
-  };
 
   // Enrolled university classes
   const [enrolledClasses] = useState<AcademicClass[]>([
@@ -296,65 +280,6 @@ export function StudentHub({
         </div>
       </div>
 
-      {/* Sub-Tabs Navigation */}
-      <div
-        className="stagger-block flex items-center gap-2 border-b border-zinc-200/80 pb-1"
-        style={{ "--i": 1 } as React.CSSProperties}
-      >
-        <button
-          onClick={() => setActiveTab("today")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "today"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>&quot;Today&quot; Hub</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("classes")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "classes"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>My Enrolled Classes ({enrolledClasses.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("timetable")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "timetable"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Weekly Timetable</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("requests")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "requests"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Requests &amp; Excuses</span>
-          {joinRequests.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-zinc-200 text-zinc-700 text-[10px] font-bold">
-              {joinRequests.length}
-            </span>
-          )}
-        </button>
-      </div>
-
       {/* ======================================================= */}
       {/* TAB 1: TODAY'S DASHBOARD (DOCUMENTATION.md § 4.C.2)     */}
       {/* ======================================================= */}
@@ -372,13 +297,6 @@ export function StudentHub({
                 Friday, October 16, 2026 • Live attendance status &amp; daily assessment results
               </p>
             </div>
-            <button
-              onClick={() => setIsJoinModalOpen(true)}
-              className="text-xs font-bold text-[#7C1D26] hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>Have a new join code?</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -416,10 +334,10 @@ export function StudentHub({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20">
+                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
                           {cls.courseCode} • {cls.section}
                         </span>
-                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
                           {cls.classType}
                         </span>
                       </div>
@@ -444,7 +362,7 @@ export function StudentHub({
                       <span className="font-semibold text-zinc-600">Today&apos;s Roll-Call Status:</span>
                       {todayRecord ? (
                         <span
-                          className={`font-bold px-2.5 py-0.5 rounded-full text-xs border ${
+                          className={`font-bold px-2.5 py-0.5 rounded-full text-xs border whitespace-nowrap ${
                             todayRecord.status === "P"
                               ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                               : todayRecord.status === "L"
@@ -543,10 +461,10 @@ export function StudentHub({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20">
+                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
                           {cls.courseCode} • {cls.section}
                         </span>
-                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
                           {cls.classType}
                         </span>
                       </div>
@@ -559,7 +477,7 @@ export function StudentHub({
                     </div>
 
                     <span
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 ${
                         summary.attendance.fdaStanding === "SAFE"
                           ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                           : summary.attendance.fdaStanding === "WARNING"
@@ -716,7 +634,7 @@ export function StudentHub({
       {activeTab === "requests" && (
         <div className="space-y-6">
           <div
-            className="stagger-block flex items-center justify-between"
+            className="stagger-block"
             style={{ "--i": 2 } as React.CSSProperties}
           >
             <div>
@@ -727,13 +645,6 @@ export function StudentHub({
                 Track status of sent class requests and view instructor feedback or decline remarks.
               </p>
             </div>
-            <button
-              onClick={() => setIsJoinModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold transition cursor-pointer shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Join Request</span>
-            </button>
           </div>
 
           <div

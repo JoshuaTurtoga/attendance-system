@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useSyncExternalStore } from "react";
 import { useAuth } from "@/features/auth/auth-context";
 import type { AcademicClass } from "@/types";
 import { ClassScheduleCalendar } from "./class-schedule-calendar";
 import { CreateClassModal } from "./create-class-modal";
-import { ClassWorkspace, type WorkspaceTab } from "./class-workspace";
+import type { WorkspaceTab } from "./class-workspace";
 import {
   Calendar,
   Clock,
@@ -15,14 +15,20 @@ import {
   Users,
   Sparkles,
   TrendingUp,
-  LayoutGrid,
+  ChevronRight,
 } from "lucide-react";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 
 const emptySubscribe = () => () => {};
 
+export interface OpenClassOptions {
+  tab?: WorkspaceTab;
+  rollCall?: boolean;
+  gradingToday?: boolean;
+}
+
 // Initial default classes for the instructor
-const INITIAL_CLASSES: AcademicClass[] = [
+export const INITIAL_INSTRUCTOR_CLASSES: AcademicClass[] = [
   {
     id: "cls_01",
     courseCode: "STAS 101",
@@ -80,29 +86,19 @@ export type InstructorViewTab = "today" | "calendar" | "classes";
 
 export interface InstructorHubProps {
   activeTab?: InstructorViewTab;
-  onTabChange?: (tab: InstructorViewTab) => void;
+  classes: AcademicClass[];
+  onCreateClass: (newClass: AcademicClass) => void;
+  onOpenClass: (cls: AcademicClass, options?: OpenClassOptions) => void;
 }
 
 export function InstructorHub({
-  activeTab: propActiveTab,
-  onTabChange,
-}: InstructorHubProps = {}) {
+  activeTab = "today",
+  classes,
+  onCreateClass,
+  onOpenClass,
+}: InstructorHubProps) {
   const { currentUser } = useAuth();
-  const [classes, setClasses] = useState<AcademicClass[]>(INITIAL_CLASSES);
-  const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null);
-  const [selectedClassTab, setSelectedClassTab] = useState<WorkspaceTab>("roster");
-  const [autoLaunchRollCall, setAutoLaunchRollCall] = useState(false);
-  const [autoLaunchGradingToday, setAutoLaunchGradingToday] = useState(false);
-  const [internalViewTab, setInternalViewTab] = useState<InstructorViewTab>("today");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  const viewTab = propActiveTab ?? internalViewTab;
-  const setViewTab = (tab: InstructorViewTab) => {
-    setInternalViewTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    }
-  };
+  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,
@@ -122,7 +118,9 @@ export function InstructorHub({
   const currentTime = new Date();
   const currentHours = currentTime.getHours();
   const currentMinutes = currentTime.getMinutes();
-  const currentTimeStr = `${currentHours.toString().padStart(2, "0")}:${currentMinutes.toString().padStart(2, "0")}`;
+  const currentTimeStr = `${currentHours.toString().padStart(2, "0")}:${currentMinutes
+    .toString()
+    .padStart(2, "0")}`;
 
   const sortedTodayClasses = [...classes].sort((a, b) => {
     const timeA = a.schedule[0]?.startTime || "23:59";
@@ -131,116 +129,54 @@ export function InstructorHub({
   });
 
   const handleClassCreated = (newClass: AcademicClass) => {
-    setClasses((prev) => [newClass, ...prev]);
-    setSelectedClass(newClass);
-    setSelectedClassTab("roster");
-    setAutoLaunchRollCall(false);
-    setAutoLaunchGradingToday(false);
+    onCreateClass(newClass);
   };
-
-  // If a class is currently selected, render the isolated Class Workspace (DOCUMENTATION.md § 4.B.5)
-  if (selectedClass) {
-    return (
-      <ClassWorkspace
-        academicClass={selectedClass}
-        initialTab={selectedClassTab}
-        autoLaunchRollCall={autoLaunchRollCall}
-        autoLaunchGradingToday={autoLaunchGradingToday}
-        onBack={() => {
-          setSelectedClass(null);
-          setSelectedClassTab("roster");
-          setAutoLaunchRollCall(false);
-          setAutoLaunchGradingToday(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
       <div
-        className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]"
+        className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]"
         style={{ "--i": 0 } as React.CSSProperties}
       >
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#7C1D26]">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Faculty Workspace</span>
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Faculty Workspace</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight">
+          <h1 className="text-xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight truncate">
             Good day, Dr. {currentUser.lastName}
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-xs md:text-sm text-zinc-500 mt-1 truncate">
             Department of {currentUser.department} • {classes.length} active classes
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Create New Class</span>
           </button>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs: Today vs Weekly Timetable vs All Classes */}
-      <div
-        className="stagger-block flex items-center gap-2 border-b border-zinc-200/80 pb-1"
-        style={{ "--i": 1 } as React.CSSProperties}
-      >
-        <button
-          onClick={() => setViewTab("today")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            viewTab === "today"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Today&apos;s Hub</span>
-        </button>
-
-        <button
-          onClick={() => setViewTab("calendar")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            viewTab === "calendar"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Weekly Schedule (Timetable)</span>
-        </button>
-
-        <button
-          onClick={() => setViewTab("classes")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            viewTab === "classes"
-              ? "bg-[#7C1D26] text-white shadow-sm"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-          }`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-          <span>All Classes ({classes.length})</span>
-        </button>
-      </div>
-
       {/* View: Today's Dashboard */}
-      {viewTab === "today" && (
+      {activeTab === "today" && (
         <div className="space-y-5">
           <div
-            className="stagger-block flex items-center justify-between"
-            style={{ "--i": 2 } as React.CSSProperties}
+            className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+            style={{ "--i": 1 } as React.CSSProperties}
           >
-            <h2 className="text-lg font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#7C1D26]" />
-              <span>Today&apos;s Classes & Quick Actions</span>
+            <h2 className="text-base md:text-lg font-bold text-zinc-900 tracking-tight flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#7C1D26] shrink-0" />
+              <span>Today&apos;s Classes &amp; Quick Actions</span>
             </h2>
-            <span className="text-xs text-zinc-500 font-medium">{todayFormatted}</span>
+            <span className="text-xs text-zinc-500 font-medium whitespace-nowrap">
+              {todayFormatted}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -251,89 +187,97 @@ export function InstructorHub({
               return (
                 <div
                   key={cls.id}
-                  className={`stagger-block group relative flex flex-col justify-between p-5 rounded-2xl bg-white border shadow-sm transition-all duration-200 border-l-4 ${
-                    isCompleted 
-                      ? "border-zinc-200 border-l-zinc-300 opacity-60 hover:opacity-100" 
+                  className={`stagger-block group flex flex-col justify-between p-5 rounded-2xl bg-white border shadow-sm transition-all duration-200 border-l-4 ${
+                    isCompleted
+                      ? "border-zinc-200 border-l-zinc-300 opacity-60 hover:opacity-100"
                       : "border-zinc-200/90 hover:shadow-md hover:-translate-y-0.5 border-l-[#7C1D26]"
                   }`}
-                  style={{ "--i": 3 + idx } as React.CSSProperties}
+                  style={{ "--i": 2 + idx } as React.CSSProperties}
                 >
-                  <div>
+                  {/* Single click target: opens the class workspace (roster) */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenClass(cls)}
+                    className="text-left w-full cursor-pointer"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
-                          isCompleted ? "text-zinc-500 bg-zinc-100 border-zinc-200" : "text-[#7C1D26] bg-[#7C1D26]/5 border-[#7C1D26]/20"
-                        }`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`text-xs font-mono font-bold px-2 py-0.5 rounded border whitespace-nowrap ${
+                            isCompleted
+                              ? "text-zinc-500 bg-zinc-100 border-zinc-200"
+                              : "text-[#7C1D26] bg-[#7C1D26]/5 border-[#7C1D26]/20"
+                          }`}
+                        >
                           {cls.courseCode} • {cls.section}
                         </span>
                         {isCompleted && (
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-200 text-zinc-600">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-200 text-zinc-600 whitespace-nowrap">
                             Completed
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200/80">
+                      <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200/80 whitespace-nowrap shrink-0">
                         {cls.classType}
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => setSelectedClass(cls)}
-                      className="text-left w-full mt-2.5 cursor-pointer"
+                    <h3
+                      className={`text-base font-bold tracking-tight transition mt-2.5 ${
+                        isCompleted
+                          ? "text-zinc-600 group-hover:text-zinc-900"
+                          : "text-zinc-950 group-hover:text-[#7C1D26]"
+                      }`}
                     >
-                      <h3 className={`text-base font-bold tracking-tight transition ${
-                        isCompleted ? "text-zinc-600 group-hover:text-zinc-900" : "text-zinc-950 group-hover:text-[#7C1D26]"
-                      }`}>
-                        {cls.courseTitle}
-                      </h3>
-                    </button>
+                      {cls.courseTitle}
+                    </h3>
 
                     <div className="mt-4 space-y-1.5 text-xs text-zinc-600">
                       {primaryBlock && (
                         <>
                           <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                            <span>
+                            <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span className="whitespace-nowrap">
                               {formatTime12Hour(primaryBlock.startTime)} -{" "}
                               {formatTime12Hour(primaryBlock.endTime)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                            <span>{primaryBlock.room}</span>
+                            <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span className="truncate">{primaryBlock.room}</span>
                           </div>
                         </>
                       )}
                       <div className="flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>Join Code: <strong className="font-mono text-[#7C1D26]">{cls.joinCode}</strong></span>
+                        <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                        <span className="whitespace-nowrap">
+                          Join Code:{" "}
+                          <strong className="font-mono text-[#7C1D26]">
+                            {cls.joinCode}
+                          </strong>
+                        </span>
                       </div>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Quick Actions (DOCUMENTATION.md § 4.B.2) */}
+                  {/* Distinct quick actions (DOCUMENTATION.md § 4.B.2) */}
                   <div className="pt-5 mt-5 border-t border-zinc-100 space-y-2">
                     <button
-                      onClick={() => {
-                        setSelectedClass(cls);
-                        setSelectedClassTab("attendance");
-                        setAutoLaunchRollCall(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+                      onClick={() =>
+                        onOpenClass(cls, { tab: "attendance", rollCall: true })
+                      }
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer whitespace-nowrap"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       <span>Record Attendance Today</span>
                     </button>
                     <button
-                      onClick={() => {
-                        setSelectedClass(cls);
-                        setSelectedClassTab("grades");
-                        setAutoLaunchRollCall(false);
-                        setAutoLaunchGradingToday(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs font-medium transition cursor-pointer"
+                      onClick={() =>
+                        onOpenClass(cls, { tab: "grades", gradingToday: true })
+                      }
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs font-medium transition cursor-pointer whitespace-nowrap"
                     >
-                      <TrendingUp className="w-3.5 h-3.5 text-[#7C1D26]" />
+                      <TrendingUp className="w-3.5 h-3.5 text-[#7C1D26] shrink-0" />
                       <span>Record Grades Today</span>
                     </button>
                   </div>
@@ -345,56 +289,53 @@ export function InstructorHub({
       )}
 
       {/* View: Weekly Schedule Timetable Grid (DOCUMENTATION.md § 4.B.3) */}
-      {viewTab === "calendar" && (
-        <div
-          className="stagger-block"
-          style={{ "--i": 2 } as React.CSSProperties}
-        >
+      {activeTab === "calendar" && (
+        <div className="stagger-block" style={{ "--i": 1 } as React.CSSProperties}>
           <ClassScheduleCalendar
             classes={classes}
-            onSelectClass={(cls) => setSelectedClass(cls)}
+            onSelectClass={(cls) => onOpenClass(cls)}
           />
         </div>
       )}
 
       {/* View: All Classes Grid */}
-      {viewTab === "classes" && (
+      {activeTab === "classes" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {classes.map((cls, idx) => (
-            <div
+            <button
               key={cls.id}
-              className="stagger-block p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition space-y-4"
-              style={{ "--i": 2 + idx } as React.CSSProperties}
+              type="button"
+              onClick={() => onOpenClass(cls)}
+              className="stagger-block text-left p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-4 cursor-pointer group"
+              style={{ "--i": 1 + idx } as React.CSSProperties}
             >
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2 py-0.5 rounded border border-[#7C1D26]/20">
+                <div className="min-w-0">
+                  <span className="inline-block text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
                     {cls.courseCode} • {cls.section}
                   </span>
-                  <h3 className="text-base font-bold text-zinc-900 mt-2">
+                  <h3 className="text-base font-bold text-zinc-900 mt-2 group-hover:text-[#7C1D26] transition">
                     {cls.courseTitle}
                   </h3>
-                  <p className="text-xs text-zinc-500 mt-1">
+                  <p className="text-xs text-zinc-500 mt-1 truncate">
                     {cls.units} Units • {cls.term}
                   </p>
                 </div>
-                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap shrink-0">
                   {cls.classType}
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-zinc-600">
+              <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+                <span className="text-xs font-mono font-bold text-zinc-600 truncate">
                   Join Code: {cls.joinCode}
                 </span>
-                <button
-                  onClick={() => setSelectedClass(cls)}
-                  className="px-3 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold transition cursor-pointer"
-                >
-                  Open Class
-                </button>
+                <span className="flex items-center gap-0.5 text-[11px] font-bold text-[#7C1D26] whitespace-nowrap shrink-0">
+                  Open
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -409,3 +350,5 @@ export function InstructorHub({
     </div>
   );
 }
+
+export default InstructorHub;
