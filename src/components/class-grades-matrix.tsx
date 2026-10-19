@@ -81,14 +81,8 @@ export function ClassGradesMatrix({
     if (onStudentGradesChange) onStudentGradesChange(next);
   };
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [activeGradingItem, setActiveGradingItem] = useState<GradeItem | null>(() => {
-    if (autoLaunchGradingToday) {
-      // Find today's exam or quiz, or default to the last item
-      return DEFAULT_GRADE_ITEMS[DEFAULT_GRADE_ITEMS.length - 1] || null;
-    }
-    return null;
-  });
+  const [isAddModalOpen, setIsAddModalOpen] = useState(autoLaunchGradingToday);
+  const [activeGradingItem, setActiveGradingItem] = useState<GradeItem | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);

@@ -29,6 +29,7 @@ export function CreateGradeItemModal({
   const [maxScore, setMaxScore] = useState<number>(20);
   const [weightPercentage, setWeightPercentage] = useState<number>(25);
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -87,7 +88,7 @@ export function CreateGradeItemModal({
             </div>
             <div>
               <h2 className="text-lg font-black text-zinc-950 tracking-tight">
-                Add an Assessment Record
+                Add a Grade to Record
               </h2>
               <p className="text-xs text-zinc-500">
                 Create a quiz, exam, or performance task for grading
@@ -208,6 +209,19 @@ export function CreateGradeItemModal({
               />
             </div>
           </div>
+        </div>
+
+        {/* Optional Notes */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-zinc-700">
+            Optional Notes:
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Instructions or remarks for this activity..."
+            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26] transition min-h-[80px]"
+          />
         </div>
 
         {/* Action Buttons */}

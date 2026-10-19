@@ -119,6 +119,17 @@ export function InstructorHub({
       })
     : "Today's Schedule";
 
+  const currentTime = new Date();
+  const currentHours = currentTime.getHours();
+  const currentMinutes = currentTime.getMinutes();
+  const currentTimeStr = `${currentHours.toString().padStart(2, "0")}:${currentMinutes.toString().padStart(2, "0")}`;
+
+  const sortedTodayClasses = [...classes].sort((a, b) => {
+    const timeA = a.schedule[0]?.startTime || "23:59";
+    const timeB = b.schedule[0]?.startTime || "23:59";
+    return timeA.localeCompare(timeB);
+  });
+
   const handleClassCreated = (newClass: AcademicClass) => {
     setClasses((prev) => [newClass, ...prev]);
     setSelectedClass(newClass);
@@ -233,19 +244,34 @@ export function InstructorHub({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {classes.map((cls, idx) => {
+            {sortedTodayClasses.map((cls, idx) => {
               const primaryBlock = cls.schedule[0];
+              const isCompleted = primaryBlock && primaryBlock.endTime < currentTimeStr;
+
               return (
                 <div
                   key={cls.id}
-                  className="stagger-block group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-l-4 border-l-[#7C1D26]"
+                  className={`stagger-block group relative flex flex-col justify-between p-5 rounded-2xl bg-white border shadow-sm transition-all duration-200 border-l-4 ${
+                    isCompleted 
+                      ? "border-zinc-200 border-l-zinc-300 opacity-60 hover:opacity-100" 
+                      : "border-zinc-200/90 hover:shadow-md hover:-translate-y-0.5 border-l-[#7C1D26]"
+                  }`}
                   style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2 py-0.5 rounded border border-[#7C1D26]/20">
-                        {cls.courseCode} • {cls.section}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                          isCompleted ? "text-zinc-500 bg-zinc-100 border-zinc-200" : "text-[#7C1D26] bg-[#7C1D26]/5 border-[#7C1D26]/20"
+                        }`}>
+                          {cls.courseCode} • {cls.section}
+                        </span>
+                        {isCompleted && (
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-200 text-zinc-600">
+                            Completed
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200/80">
                         {cls.classType}
                       </span>
@@ -255,7 +281,9 @@ export function InstructorHub({
                       onClick={() => setSelectedClass(cls)}
                       className="text-left w-full mt-2.5 cursor-pointer"
                     >
-                      <h3 className="text-base font-bold text-zinc-950 tracking-tight group-hover:text-[#7C1D26] transition">
+                      <h3 className={`text-base font-bold tracking-tight transition ${
+                        isCompleted ? "text-zinc-600 group-hover:text-zinc-900" : "text-zinc-950 group-hover:text-[#7C1D26]"
+                      }`}>
                         {cls.courseTitle}
                       </h3>
                     </button>
