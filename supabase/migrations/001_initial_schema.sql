@@ -367,6 +367,26 @@ drop trigger if exists profiles_touch on public.profiles;
 create trigger profiles_touch before update on public.profiles
   for each row execute function public.touch_updated_at();
 
+-- Enforce that admin accounts cannot be suspended and admins cannot suspend their own account
+create or replace function public.prevent_admin_suspension()
+returns trigger language plpgsql as $$
+begin
+  if new.is_suspended <> old.is_suspended and new.is_suspended = true then
+    if 'admin' = any(old.roles) then
+      raise exception 'Administrator accounts are protected and cannot be suspended.' using errcode = 'check_violation';
+    end if;
+    if old.id = auth.uid() then
+      raise exception 'Administrators cannot suspend their own account.' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists check_admin_suspension on public.profiles;
+create trigger check_admin_suspension
+  before update on public.profiles
+  for each row execute function public.prevent_admin_suspension();
+
 drop trigger if exists classes_touch on public.classes;
 create trigger classes_touch before update on public.classes
   for each row execute function public.touch_updated_at();

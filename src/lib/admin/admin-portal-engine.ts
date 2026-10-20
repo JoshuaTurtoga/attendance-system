@@ -131,9 +131,42 @@ export function filterUsers(
 }
 
 /**
- * Toggles an account suspension status between ACTIVE and SUSPENDED.
+ * Evaluates whether a target user account can be suspended or reactivated.
+ * Rules:
+ * - Admin accounts cannot be suspended.
+ * - Administrators cannot suspend their own account.
  */
-export function toggleUserSuspension(user: UserProfile): UserProfile {
+export function canSuspendUser(
+  targetUser: UserProfile,
+  currentUserId?: string
+): { allowed: boolean; reason?: string } {
+  if (currentUserId && targetUser.id === currentUserId) {
+    return {
+      allowed: false,
+      reason: "Administrators cannot suspend their own account.",
+    };
+  }
+  if (targetUser.roles.includes("admin")) {
+    return {
+      allowed: false,
+      reason: "Administrator accounts are protected and cannot be suspended.",
+    };
+  }
+  return { allowed: true };
+}
+
+/**
+ * Toggles an account suspension status between ACTIVE and SUSPENDED.
+ * Throws an error if the target account is an administrator or self.
+ */
+export function toggleUserSuspension(
+  user: UserProfile,
+  currentUserId?: string
+): UserProfile {
+  const check = canSuspendUser(user, currentUserId);
+  if (!check.allowed) {
+    throw new Error(check.reason);
+  }
   return {
     ...user,
     isSuspended: !user.isSuspended,
@@ -141,7 +174,7 @@ export function toggleUserSuspension(user: UserProfile): UserProfile {
 }
 
 /**
- * Validates global institutional attendance and term configurations (DOCUMENTATION.md § 4.A).
+ * Validates global institutional attendance and term configurations.
  */
 export function validateSystemPolicyConfig(
   config: SystemPolicyConfig
@@ -172,7 +205,7 @@ export function validateSystemPolicyConfig(
 }
 
 /**
- * Enforces Strict Academic Privacy rule (DOCUMENTATION.md § 3.5):
+ * Enforces Strict Academic Privacy rule:
  * While Admins have systemic oversight over users and classes,
  * Admins are strictly blocked at both the UI and API levels from creating, editing,
  * or manipulating grades, attendance records, or individual student academic data.
@@ -183,7 +216,7 @@ export function assertAcademicMutationPermitted(
 ): void {
   if (actor.activeView === "admin") {
     throw new Error(
-      "Strict Academic Privacy Violation: System Administrators are barred from creating or modifying student academic records, grades, or attendance (DOCUMENTATION.md § 3.5)."
+      "Strict Academic Privacy Violation: System Administrators are barred from creating or modifying student academic records, grades, or attendance."
     );
   }
 

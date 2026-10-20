@@ -5,6 +5,7 @@ import {
   provisionInstructorAccount,
   filterUsers,
   toggleUserSuspension,
+  canSuspendUser,
   validateSystemPolicyConfig,
   assertAcademicMutationPermitted,
   type SystemPolicyConfig,
@@ -97,6 +98,33 @@ test("Admin Portal: filterUsers and toggleUserSuspension manages accounts", () =
 
   const reactivatedUser = toggleUserSuspension(updatedUser);
   assert.equal(reactivatedUser.isSuspended, false);
+});
+
+test("Admin Portal: admin accounts cannot be suspended and admins cannot suspend themselves", () => {
+  const adminUser = mockUsers[0]; // id: "u1", role: ["admin"]
+  const instructorUser = mockUsers[1]; // id: "u2", role: ["instructor"]
+
+  // Admin trying to suspend another admin account -> blocked
+  const adminCheck = canSuspendUser(adminUser, "u_other_admin");
+  assert.equal(adminCheck.allowed, false);
+  assert.throws(
+    () => toggleUserSuspension(adminUser, "u_other_admin"),
+    /Administrator accounts are protected and cannot be suspended/
+  );
+
+  // Admin trying to suspend their own account -> blocked
+  const selfCheck = canSuspendUser(adminUser, "u1");
+  assert.equal(selfCheck.allowed, false);
+  assert.throws(
+    () => toggleUserSuspension(adminUser, "u1"),
+    /Administrators cannot suspend their own account/
+  );
+
+  // Admin suspending an instructor -> allowed
+  const instructorCheck = canSuspendUser(instructorUser, "u1");
+  assert.equal(instructorCheck.allowed, true);
+  const suspendedInstructor = toggleUserSuspension(instructorUser, "u1");
+  assert.equal(suspendedInstructor.isSuspended, true);
 });
 
 test("Admin Portal: validateSystemPolicyConfig enforces realistic university attendance parameters", () => {

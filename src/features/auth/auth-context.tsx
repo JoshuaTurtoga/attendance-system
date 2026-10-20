@@ -185,7 +185,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const profile = await hydrateProfile(supabase, userId);
-    if (profile?.isSuspended) {
+    if (!profile) {
+      await supabase.auth.signOut();
+      return {
+        ok: false,
+        error:
+          "Account profile not found in the university database. If you just created this account, ensure a matching record exists in public.profiles with role 'admin'.",
+      };
+    }
+    if (profile.isSuspended) {
       await supabase.auth.signOut();
       return {
         ok: false,
@@ -194,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setCurrentUser(profile);
-    setActiveView(profile?.activeView ?? "student");
+    setActiveView(profile.activeView ?? "student");
     return { ok: true };
   };
 

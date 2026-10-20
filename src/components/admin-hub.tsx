@@ -11,6 +11,7 @@ import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 import {
   filterUsers,
   toggleUserSuspension,
+  canSuspendUser,
   type SystemPolicyConfig,
 } from "@/lib/admin/admin-portal-engine";
 import { AdminProvisionModal } from "./admin-provision-modal";
@@ -100,7 +101,7 @@ export interface AdminHubProps {
 }
 
 export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
-  const { supabase } = useAuth();
+  const { currentUser, supabase } = useAuth();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [classes, setClasses] = useState<AcademicClass[]>([]);
@@ -164,7 +165,12 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
   }, [loadAdminData]);
 
   const handleToggleSuspension = async (user: UserProfile) => {
-    const updated = toggleUserSuspension(user);
+    const check = canSuspendUser(user, currentUser?.id);
+    if (!check.allowed) {
+      showToast(check.reason || "Action not permitted on administrator accounts.");
+      return;
+    }
+    const updated = toggleUserSuspension(user, currentUser?.id);
     setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
     try {
       if (supabase) await setSuspension(supabase, user.id, Boolean(updated.isSuspended));
@@ -238,28 +244,23 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
         </div>
       )}
 
-      {/* Strict Privacy Banner (DOCUMENTATION.md § 3.5) */}
+      {/* Institutional Academic Governance Notice */}
       <div
         className="stagger-block flex items-start gap-4 p-5 rounded-3xl bg-amber-50/80 border border-amber-200/90 text-amber-950 shadow-xs"
         style={{ "--i": 0 } as React.CSSProperties}
       >
         <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-800">
-          <ShieldAlert className="w-5 h-5" />
+          <ShieldCheck className="w-5 h-5 text-amber-800" />
         </div>
         <div className="text-xs space-y-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-bold text-amber-900 text-sm">
-              Institutional Governance &amp; Strict Academic Privacy Active
-            </p>
-            <span className="px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 text-[10px] font-bold whitespace-nowrap">
-              DOC § 3.5 ENFORCED
-            </span>
-          </div>
+          <p className="font-bold text-amber-900 text-sm">
+            Institutional Governance &amp; Academic Privacy
+          </p>
           <p className="text-amber-800/90 leading-relaxed">
             As System Administrator, you manage accounts, academic departments, and attendance policies.
             Per university policy,{" "}
             <strong>
-              academic records (grades, roll-call sessions, student scores) are strictly locked from administrative modification.
+              academic records (grades, roll-call sessions, and student scores) are strictly locked from administrative modification.
             </strong>{" "}
             Only designated course faculty may create or edit academic evaluations.
           </p>
@@ -394,27 +395,6 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Institutional Compliance & Audit Card */}
-          <div
-            className="stagger-block p-6 rounded-3xl bg-zinc-900 text-white shadow-xl space-y-4"
-            style={{ "--i": 4 } as React.CSSProperties}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                <h4 className="font-bold text-sm text-zinc-100">
-                  Academic Integrity & Privacy Lock (DOCUMENTATION.md § 3.5)
-                </h4>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                AUDIT COMPLIANT
-              </span>
-            </div>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Institutional safeguards actively isolate administrative portal controls from course records. System administrators can provision accounts, manage department catalogs, and inspect course rosters, but are strictly prohibited from altering student marks, exam scores, or roll-call results.
-            </p>
           </div>
         </div>
       )}
@@ -567,16 +547,30 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
                         </td>
 
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => handleToggleSuspension(user)}
-                            className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition cursor-pointer ${
-                              user.isSuspended
-                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                                : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                            }`}
-                          >
-                            {user.isSuspended ? "Reactivate" : "Suspend"}
-                          </button>
+                          {user.roles.includes("admin") || user.id === currentUser?.id ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-100 text-zinc-400 text-[11px] font-semibold cursor-not-allowed select-none"
+                              title={
+                                user.id === currentUser?.id
+                                  ? "Administrators cannot suspend their own account."
+                                  : "Administrator accounts are protected and cannot be suspended."
+                              }
+                            >
+                              <Lock className="w-3 h-3 text-zinc-400" />
+                              Protected
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleSuspension(user)}
+                              className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition cursor-pointer ${
+                                user.isSuspended
+                                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                                  : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                              }`}
+                            >
+                              {user.isSuspended ? "Reactivate" : "Suspend"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
