@@ -88,6 +88,7 @@ export function provisionInstructorAccount(
     department: department.trim(),
     createdAt: new Date().toISOString(),
     isSuspended: false,
+    mustResetPassword: true,
   };
 
   return {

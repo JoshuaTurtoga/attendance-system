@@ -17,6 +17,8 @@ import {
   listVisibleClasses,
   type CreateClassInput,
 } from "@/lib/data/classes";
+import { FirstTimePasswordModal } from "./first-time-password-modal";
+import { SuspensionNoticeBanner } from "./suspension-notice-banner";
 import {
   ArrowLeft,
   Users,
@@ -193,6 +195,13 @@ export function PortalShell() {
       />
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0 bg-white">
+        {currentUser?.isSuspended && (
+          <SuspensionNoticeBanner
+            userRole={currentUser.activeView}
+            userName={`${currentUser.firstName} ${currentUser.lastName}`.trim()}
+          />
+        )}
+
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
           <StaggeredView transitionKey={transitionKey} blockCount={5}>
             {isWorkspaceOpen && selectedClass ? (
@@ -232,6 +241,10 @@ export function PortalShell() {
           </p>
         </footer>
       </div>
+
+      {currentUser?.mustResetPassword && (
+        <FirstTimePasswordModal isOpen={true} />
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ export interface ProfileRow {
   student_number: string | null;
   avatar_url: string | null;
   is_suspended: boolean;
+  must_reset_password?: boolean | null;
   created_at: string;
 }
 
@@ -33,6 +34,7 @@ export function mapProfileRow(row: ProfileRow): UserProfile {
     studentNumber: row.student_number ?? undefined,
     avatarUrl: row.avatar_url ?? undefined,
     isSuspended: row.is_suspended,
+    mustResetPassword: Boolean(row.must_reset_password),
     createdAt: row.created_at,
   };
 }
@@ -43,11 +45,19 @@ export async function fetchProfile(
 ): Promise<UserProfile | null> {
   const { data, error } = await client
     .from("profiles")
-    .select(PROFILE_COLUMNS)
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await client
+      .from("profiles")
+      .select(PROFILE_COLUMNS)
+      .eq("id", userId)
+      .maybeSingle();
+    if (fallback.error) throw fallback.error;
+    return fallback.data ? mapProfileRow(fallback.data as ProfileRow) : null;
+  }
   return data ? mapProfileRow(data as ProfileRow) : null;
 }
 
@@ -55,11 +65,18 @@ export async function fetchProfile(
 export async function listProfiles(client: SupabaseClient): Promise<UserProfile[]> {
   const { data, error } = await client
     .from("profiles")
-    .select(PROFILE_COLUMNS)
+    .select("*")
     .order("last_name", { ascending: true });
 
-  if (error) throw error;
-  return (data as ProfileRow[] | null ?? []).map(mapProfileRow);
+  if (error) {
+    const fallback = await client
+      .from("profiles")
+      .select(PROFILE_COLUMNS)
+      .order("last_name", { ascending: true });
+    if (fallback.error) throw fallback.error;
+    return ((fallback.data as ProfileRow[] | null) ?? []).map(mapProfileRow);
+  }
+  return ((data as ProfileRow[] | null) ?? []).map(mapProfileRow);
 }
 
 export async function setActiveView(

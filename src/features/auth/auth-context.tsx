@@ -66,6 +66,7 @@ interface AuthContextType {
     code: string,
     newPassword: string
   ) => Promise<AuthResult>;
+  completePasswordReset: (newPassword: string) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,7 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // so a brand-new account is not shown as missing.
       for (let attempt = 0; attempt < 3; attempt++) {
         const profile = await fetchProfile(client, userId);
-        if (profile) return profile;
+        if (profile) {
+          try {
+            const { data } = await client.auth.getUser();
+            if (data?.user?.user_metadata?.must_reset_password !== undefined) {
+              profile.mustResetPassword = Boolean(data.user.user_metadata.must_reset_password);
+            }
+          } catch {
+            // non-fatal
+          }
+          return profile;
+        }
         await new Promise((resolve) => setTimeout(resolve, 400));
       }
       return null;
@@ -193,14 +204,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "Account profile not found in the university database. If you just created this account, ensure a matching record exists in public.profiles with role 'admin'.",
       };
     }
-    if (profile.isSuspended) {
-      await supabase.auth.signOut();
-      return {
-        ok: false,
-        error: "This account has been suspended. Contact the registrar.",
-      };
-    }
-
     setCurrentUser(profile);
     setActiveView(profile.activeView ?? "student");
     return { ok: true };
@@ -325,6 +328,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true };
   };
 
+  const completePasswordReset = async (newPassword: string): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
+    }
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      return { ok: false, error: passwordCheck.message };
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: { must_reset_password: false },
+      });
+      if (error) {
+        return { ok: false, error: friendlyAuthError(error.message) };
+      }
+
+      if (currentUser) {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ must_reset_password: false })
+            .eq("id", currentUser.id);
+        } catch {
+          // non-blocking if column not yet added
+        }
+        setCurrentUser({ ...currentUser, mustResetPassword: false });
+      }
+
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : "Failed to update password.",
+      };
+    }
+  };
+
   const availableViews = currentUser ? getAvailableViews(currentUser.roles) : [];
   const isAuthenticated = currentUser !== null;
 
@@ -349,6 +391,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requestPasswordReset,
         verifyPasswordResetOtp,
         resetPassword,
+        completePasswordReset,
       }}
     >
       {children}

@@ -62,6 +62,7 @@ test("Admin Portal: provisionInstructorAccount creates instructor with temporary
   assert.equal(result.user?.lastName, "Pendelton");
   assert.deepEqual(result.user?.roles, ["instructor"]);
   assert.equal(result.user?.department, "Natural Sciences");
+  assert.equal(result.user?.mustResetPassword, true);
   assert.ok(result.temporaryPassword !== undefined);
   assert.ok(result.temporaryPassword.length >= 8);
   assert.ok(/[A-Z]/.test(result.temporaryPassword));
@@ -182,3 +183,25 @@ test("Admin Portal: assertAcademicMutationPermitted blocks Admins from modifying
     assertAcademicMutationPermitted(instructorActor, "inst_1");
   });
 });
+
+test("Admin Portal: provisioned instructor retains mustResetPassword until permanent password is established", () => {
+  const provisionResult = provisionInstructorAccount(
+    {
+      firstName: "Gabriel",
+      lastName: "Reyes",
+      email: "gabriel.reyes@university.edu",
+      department: "College of Law: COL",
+    },
+    mockUsers
+  );
+
+  assert.equal(provisionResult.success, true);
+  const newUser = provisionResult.user!;
+  assert.equal(newUser.mustResetPassword, true);
+  assert.deepEqual(newUser.roles, ["instructor"]);
+
+  // After setting permanent password:
+  const updatedUser: UserProfile = { ...newUser, mustResetPassword: false };
+  assert.equal(updatedUser.mustResetPassword, false);
+});
+

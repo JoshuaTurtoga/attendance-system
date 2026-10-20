@@ -99,7 +99,7 @@ export function AdminProvisionModal({
 
   const handleCopyCredentials = () => {
     if (!provisionedData) return;
-    const creds = `University Faculty Account Credentials\nName: Dr. ${provisionedData.user.firstName} ${provisionedData.user.lastName}\nEmail: ${provisionedData.user.email}\nDepartment: ${provisionedData.user.department}\nTemporary Password: ${provisionedData.temporaryPassword}\n\nPlease sign in at the university portal and reset your password upon first login.`;
+    const creds = `University Faculty Account Credentials\nName: ${provisionedData.user.firstName} ${provisionedData.user.lastName}\nEmail: ${provisionedData.user.email}\nDepartment: ${provisionedData.user.department}\nTemporary Password: ${provisionedData.temporaryPassword}\n\nPlease sign in at the university portal and reset your password upon first login.`;
     navigator.clipboard.writeText(creds);
     setCopiedPass(true);
     setTimeout(() => setCopiedPass(false), 2000);
@@ -139,7 +139,7 @@ export function AdminProvisionModal({
                   Assigned Faculty
                 </span>
                 <span className="font-bold text-zinc-950 text-sm">
-                  Dr. {provisionedData.user.firstName} {provisionedData.user.middleName || ""}{" "}
+                  {provisionedData.user.firstName} {provisionedData.user.middleName || ""}{" "}
                   {provisionedData.user.lastName}
                 </span>
               </div>

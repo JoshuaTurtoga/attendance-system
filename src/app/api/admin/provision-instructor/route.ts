@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import { PROFILE_COLUMNS, mapProfileRow, type ProfileRow } from "@/lib/data/profiles";
+import { mapProfileRow, type ProfileRow } from "@/lib/data/profiles";
+import type { UserProfile } from "@/types";
 
 interface ProvisionBody {
   firstName?: string;
@@ -74,6 +75,8 @@ export async function POST(request: Request) {
     );
   }
 
+  let targetUserId: string | null = null;
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
@@ -84,36 +87,95 @@ export async function POST(request: Request) {
       middle_name: body.middleName?.trim() ?? "",
       last_name: lastName,
       department,
+      must_reset_password: true,
     },
   });
 
-  if (error || !data.user) {
+  if (data?.user?.id) {
+    targetUserId = data.user.id;
+  } else if (error && (error.message.toLowerCase().includes("already") || error.message.toLowerCase().includes("registered") || error.message.toLowerCase().includes("exists"))) {
+    // If the account was already created (e.g. earlier failed role assignment),
+    // locate the profile/auth user and re-assign temporary credentials and instructor role.
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingProfile?.id) {
+      targetUserId = existingProfile.id;
+      await admin.auth.admin.updateUserById(existingProfile.id, {
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: "instructor",
+          first_name: firstName,
+          middle_name: body.middleName?.trim() ?? "",
+          last_name: lastName,
+          department,
+          must_reset_password: true,
+        },
+      });
+    } else {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+  } else {
     return NextResponse.json(
       { error: error?.message ?? "Unable to provision the account." },
       { status: 400 }
     );
   }
 
-  // The profile row is created by the handle_new_user trigger; read it back so
-  // the directory shows the canonical record.
+  if (!targetUserId) {
+    return NextResponse.json(
+      { error: "Could not resolve user identifier for provisioning." },
+      { status: 500 }
+    );
+  }
+
+  // Explicitly persist the instructor role and must_reset_password flag to public.profiles.
+  // This guarantees the account is strictly 'instructor' regardless of database trigger defaults.
+  await admin
+    .from("profiles")
+    .upsert(
+      {
+        id: targetUserId,
+        email,
+        first_name: firstName,
+        middle_name: body.middleName?.trim() || null,
+        last_name: lastName,
+        roles: ["instructor"],
+        active_view: "instructor",
+        department,
+        must_reset_password: true,
+        is_suspended: false,
+      },
+      { onConflict: "id" }
+    );
+
+  // Read back the canonical record so the directory reflects the exact updated record.
   const { data: profile } = await admin
     .from("profiles")
-    .select(PROFILE_COLUMNS)
-    .eq("id", data.user.id)
+    .select("*")
+    .eq("id", targetUserId)
     .maybeSingle();
 
-  const result = profile
+  const result: UserProfile = profile
     ? mapProfileRow(profile as ProfileRow)
     : {
-        id: data.user.id,
+        id: targetUserId,
         email,
         firstName,
         middleName: body.middleName?.trim() || undefined,
         lastName,
-        roles: ["instructor"] as const,
-        activeView: "instructor" as const,
+        roles: ["instructor"],
+        activeView: "instructor",
         department,
         isSuspended: false,
+        mustResetPassword: true,
         createdAt: new Date().toISOString(),
       };
 

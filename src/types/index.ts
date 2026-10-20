@@ -18,6 +18,7 @@ export interface UserProfile {
   studentNumber?: string;
   avatarUrl?: string;
   isSuspended?: boolean;
+  mustResetPassword?: boolean;
   createdAt: string;
 }
 
