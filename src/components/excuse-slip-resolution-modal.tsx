@@ -21,6 +21,7 @@ interface ExcuseSlipResolutionModalProps {
   requests: ExcuseRequest[];
   attendanceRecords: AttendanceRecord[];
   onRefresh: () => Promise<void>;
+  isRestricted?: boolean;
 }
 
 const COMMON_DECLINE_REASONS = [
@@ -37,8 +38,10 @@ export function ExcuseSlipResolutionModal({
   requests,
   attendanceRecords: _attendanceRecords,
   onRefresh,
+  isRestricted = false,
 }: ExcuseSlipResolutionModalProps) {
-  const { supabase } = useAuth();
+  const { supabase, currentUser } = useAuth();
+  const isSuspended = isRestricted || Boolean(currentUser?.isSuspended);
   const [activeTab, setActiveTab] = useState<"pending" | "resolved">("pending");
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
@@ -52,6 +55,10 @@ export function ExcuseSlipResolutionModal({
   const resolvedRequests = requests.filter((r) => r.status !== "pending");
 
   const handleApprove = async (req: ExcuseRequest) => {
+    if (isSuspended) {
+      alert("Restricted Account: Suspended faculty members cannot approve excuse slips.");
+      return;
+    }
     if (!supabase || isProcessing) return;
     setIsProcessing(true);
     try {
@@ -67,6 +74,10 @@ export function ExcuseSlipResolutionModal({
   };
 
   const handleDeclineConfirm = async (req: ExcuseRequest) => {
+    if (isSuspended) {
+      alert("Restricted Account: Suspended faculty members cannot decline excuse slips.");
+      return;
+    }
     if (!supabase || isProcessing) return;
     const reason = declineReason.trim() || "Did not meet institutional excuse policy criteria.";
     
@@ -265,24 +276,32 @@ export function ExcuseSlipResolutionModal({
                       </div>
                     ) : (
                       /* Action Controls */
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
-                        <button
-                          type="button"
-                          onClick={() => setDecliningRequestId(req.id)}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-50 border border-rose-200 text-xs font-bold transition cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Decline</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApprove(req)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>Approve & Mark as Excused (E)</span>
-                        </button>
-                      </div>
+                      isSuspended ? (
+                        <div className="flex items-center justify-end pt-2 border-t border-zinc-100">
+                          <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100 px-3 py-1.5 rounded-xl">
+                            Account Suspended • Read-Only Review
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                          <button
+                            type="button"
+                            onClick={() => setDecliningRequestId(req.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-700 hover:bg-rose-50 border border-rose-200 text-xs font-bold transition cursor-pointer"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Decline</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(req)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Approve & Mark as Excused (E)</span>
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                 ))

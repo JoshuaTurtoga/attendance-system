@@ -35,6 +35,7 @@ interface ClassRosterTableProps {
   onStudentsChange: (students: RosterStudent[]) => void;
   sharedRequests: JoinRequest[];
   onRequestsChange: (requests: JoinRequest[]) => void;
+  isRestricted?: boolean;
 }
 
 type RosterSubTab = "table" | "queue";
@@ -45,8 +46,10 @@ export function ClassRosterTable({
   onStudentsChange,
   sharedRequests,
   onRequestsChange,
+  isRestricted = false,
 }: ClassRosterTableProps) {
-  const { supabase } = useAuth();
+  const { supabase, currentUser } = useAuth();
+  const isSuspended = isRestricted || Boolean(currentUser?.isSuspended);
   const [activeSubTab, setActiveSubTab] = useState<RosterSubTab>("table");
   const [searchQuery, setSearchQuery] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -95,7 +98,7 @@ export function ClassRosterTable({
   };
 
   const handleDeleteStudent = async (id: string) => {
-    if (!supabase || isProcessing) return;
+    if (!supabase || isProcessing || isSuspended) return;
     if (!confirm("Are you sure you want to remove this student from the roster?")) return;
 
     setIsProcessing(true);
@@ -111,7 +114,7 @@ export function ClassRosterTable({
 
   const handleAddInlineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draftStudentNumber.trim() || !draftFullName.trim() || !supabase || isProcessing) return;
+    if (!draftStudentNumber.trim() || !draftFullName.trim() || !supabase || isProcessing || isSuspended) return;
 
     setIsProcessing(true);
     try {
@@ -150,7 +153,7 @@ export function ClassRosterTable({
   };
 
   const handleConfirmPaste = async () => {
-    if (pastePreview.length > 0 && supabase && !isProcessing) {
+    if (pastePreview.length > 0 && supabase && !isProcessing && !isSuspended) {
       setIsProcessing(true);
       try {
         await importRosterStudents(
@@ -221,24 +224,42 @@ export function ClassRosterTable({
         {activeSubTab === "table" && (
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setIsPasteModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer whitespace-nowrap"
+              type="button"
+              onClick={() => {
+                if (!isSuspended) setIsPasteModalOpen(true);
+              }}
+              disabled={isSuspended}
+              title={isSuspended ? "Roster modifications disabled while suspended." : undefined}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-xs font-semibold text-zinc-700 shadow-xs transition whitespace-nowrap ${
+                isSuspended ? "opacity-40 cursor-not-allowed" : "hover:bg-zinc-50 cursor-pointer"
+              }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-[#7C1D26] shrink-0" />
               <span>Paste from Sheets</span>
             </button>
 
             <button
-              onClick={() => setIsAddingInline(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer whitespace-nowrap"
+              type="button"
+              onClick={() => {
+                if (!isSuspended) setIsAddingInline(true);
+              }}
+              disabled={isSuspended}
+              title={isSuspended ? "Roster modifications disabled while suspended." : undefined}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-xs font-semibold text-zinc-700 shadow-xs transition whitespace-nowrap ${
+                isSuspended ? "opacity-40 cursor-not-allowed" : "hover:bg-zinc-50 cursor-pointer"
+              }`}
             >
               <Plus className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
               <span>Add Row</span>
             </button>
 
             <button
+              type="button"
               onClick={handleSaveAll}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer whitespace-nowrap"
+              disabled={isSuspended}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] text-white text-xs font-semibold shadow-sm transition whitespace-nowrap ${
+                isSuspended ? "opacity-40 cursor-not-allowed" : "hover:bg-[#5E141B] cursor-pointer"
+              }`}
             >
               {savedSuccess ? (
                 <>
@@ -264,6 +285,7 @@ export function ClassRosterTable({
           roster={sharedStudents}
           onRosterUpdated={onStudentsChange}
           onRequestStatusUpdated={onRequestsChange}
+          isRestricted={isSuspended}
         />
       )}
 
@@ -458,13 +480,16 @@ export function ClassRosterTable({
 
                         {/* Col 6: Delete action */}
                         <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => handleDeleteStudent(student.id)}
-                            className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-rose-600 transition cursor-pointer"
-                            title="Delete student"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!isSuspended && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStudent(student.id)}
+                              className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-rose-600 transition cursor-pointer"
+                              title="Delete student"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

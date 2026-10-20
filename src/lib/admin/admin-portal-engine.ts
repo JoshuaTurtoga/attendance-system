@@ -215,6 +215,12 @@ export function assertAcademicMutationPermitted(
   actor: UserProfile,
   assignedInstructorId: string
 ): void {
+  if (actor.isSuspended) {
+    throw new Error(
+      "Restricted Account: Your account is administratively suspended. You cannot edit academic records, grades, or attendance."
+    );
+  }
+
   if (actor.activeView === "admin") {
     throw new Error(
       "Strict Academic Privacy Violation: System Administrators are barred from creating or modifying student academic records, grades, or attendance."

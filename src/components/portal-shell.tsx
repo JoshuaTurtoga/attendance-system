@@ -125,6 +125,9 @@ export function PortalShell() {
     if (!supabase || !currentUser) {
       throw new Error("You must be signed in to create a class.");
     }
+    if (currentUser.isSuspended) {
+      throw new Error("Restricted Account: Suspended faculty accounts cannot create new classes.");
+    }
     const created = await createClass(supabase, currentUser.id, input);
     setClasses((prev) => [created, ...prev]);
     openClass(created);

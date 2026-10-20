@@ -88,16 +88,28 @@ export function InstructorHub({
   const instructorLastName = currentUser?.lastName ?? "";
   const instructorDepartment = currentUser?.department ?? "Faculty";
 
+  const isRestricted = Boolean(currentUser?.isSuspended);
+
   const emptyState = (
     <EmptyState
       icon={<BookOpen className="w-6 h-6" />}
       title="No classes created yet"
-      description="Create your first class workspace to start recording attendance and grades. Every class gets its own roster, schedule, and join code."
+      description={
+        isRestricted
+          ? "Your account is under administrative suspension. Class creation and record modifications are locked. Contact the registrar."
+          : "Create your first class workspace to start recording attendance and grades. Every class gets its own roster, schedule, and join code."
+      }
       action={
         <button
           type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
+          onClick={() => {
+            if (!isRestricted) setIsCreateModalOpen(true);
+          }}
+          disabled={isRestricted}
+          title={isRestricted ? "Class creation is disabled while your account is suspended." : undefined}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 transition whitespace-nowrap ${
+            isRestricted ? "opacity-40 cursor-not-allowed" : "hover:bg-[#5E141B] cursor-pointer"
+          }`}
         >
           <Plus className="w-4 h-4 shrink-0" />
           <span>Create New Class</span>
@@ -129,8 +141,15 @@ export function InstructorHub({
 
         <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
+            type="button"
+            onClick={() => {
+              if (!isRestricted) setIsCreateModalOpen(true);
+            }}
+            disabled={isRestricted}
+            title={isRestricted ? "Class creation is disabled while your account is suspended." : undefined}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 transition whitespace-nowrap ${
+              isRestricted ? "opacity-40 cursor-not-allowed" : "hover:bg-[#5E141B] cursor-pointer"
+            }`}
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span>Create New Class</span>
@@ -251,21 +270,27 @@ export function InstructorHub({
                   <div className="pt-5 mt-5 border-t border-zinc-100 space-y-2">
                     <button
                       onClick={() =>
-                        onOpenClass(cls, { tab: "attendance", rollCall: true })
+                        onOpenClass(cls, {
+                          tab: "attendance",
+                          rollCall: !isRestricted,
+                        })
                       }
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Record Attendance Today</span>
+                      <span>{isRestricted ? "View Attendance (Read-Only)" : "Record Attendance Today"}</span>
                     </button>
                     <button
                       onClick={() =>
-                        onOpenClass(cls, { tab: "grades", gradingToday: true })
+                        onOpenClass(cls, {
+                          tab: "grades",
+                          gradingToday: !isRestricted,
+                        })
                       }
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 text-xs font-medium transition cursor-pointer whitespace-nowrap"
                     >
                       <TrendingUp className="w-3.5 h-3.5 text-[#7C1D26] shrink-0" />
-                      <span>Record Grades Today</span>
+                      <span>{isRestricted ? "View Grades (Read-Only)" : "Record Grades Today"}</span>
                     </button>
                   </div>
                 </div>

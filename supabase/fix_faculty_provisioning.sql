@@ -71,3 +71,58 @@ from auth.users u
 where p.id = u.id
   and u.raw_user_meta_data ->> 'role' = 'instructor'
   and not ('instructor' = any(p.roles));
+
+-- 4. Enforce RLS restriction: suspended faculty cannot create classes or edit academic records
+create or replace function public.is_class_instructor(p_class_id uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.classes c
+    join public.profiles p on p.id = c.instructor_id
+    where c.id = p_class_id 
+      and c.instructor_id = auth.uid()
+      and coalesce(p.is_suspended, false) = false
+  );
+$$;
+
+drop policy if exists classes_insert on public.classes;
+create policy classes_insert on public.classes
+  for insert with check (
+    instructor_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_suspended, false) = false
+        and ('instructor' = any(p.roles) or 'admin' = any(p.roles))
+    )
+  );
+
+drop policy if exists classes_update on public.classes;
+create policy classes_update on public.classes
+  for update using (
+    instructor_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_suspended, false) = false
+    )
+  ) with check (
+    instructor_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_suspended, false) = false
+    )
+  );
+
+drop policy if exists classes_delete on public.classes;
+create policy classes_delete on public.classes
+  for delete using (
+    instructor_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_suspended, false) = false
+    )
+  );
+

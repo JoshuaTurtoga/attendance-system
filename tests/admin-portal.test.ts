@@ -182,6 +182,20 @@ test("Admin Portal: assertAcademicMutationPermitted blocks Admins from modifying
   assert.doesNotThrow(() => {
     assertAcademicMutationPermitted(instructorActor, "inst_1");
   });
+
+  const suspendedInstructor: UserProfile = {
+    ...instructorActor,
+    id: "inst_suspended",
+    isSuspended: true,
+  };
+
+  // Suspended faculty attempting to edit academic records -> must be blocked
+  assert.throws(
+    () => {
+      assertAcademicMutationPermitted(suspendedInstructor, "inst_suspended");
+    },
+    /Restricted Account/
+  );
 });
 
 test("Admin Portal: provisioned instructor retains mustResetPassword until permanent password is established", () => {

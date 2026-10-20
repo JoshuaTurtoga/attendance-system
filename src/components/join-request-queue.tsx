@@ -29,6 +29,7 @@ interface JoinRequestQueueProps {
   roster: RosterStudent[];
   onRosterUpdated: (newRoster: RosterStudent[]) => void;
   onRequestStatusUpdated: (updatedRequests: JoinRequest[]) => void;
+  isRestricted?: boolean;
 }
 
 export function JoinRequestQueue({
@@ -37,8 +38,10 @@ export function JoinRequestQueue({
   roster,
   onRosterUpdated,
   onRequestStatusUpdated,
+  isRestricted = false,
 }: JoinRequestQueueProps) {
-  const { supabase } = useAuth();
+  const { supabase, currentUser } = useAuth();
+  const isSuspended = isRestricted || Boolean(currentUser?.isSuspended);
   const [selectedPhotoModal, setSelectedPhotoModal] = useState<string | null>(null);
   const [declineModalReq, setDeclineModalReq] = useState<JoinRequest | null>(null);
   const [declineReason, setDeclineReason] = useState("");
@@ -61,7 +64,7 @@ export function JoinRequestQueue({
   };
 
   const handleApprove = async (req: JoinRequest) => {
-    if (!supabase || isProcessing) return;
+    if (!supabase || isProcessing || isSuspended) return;
     setIsProcessing(true);
     try {
       await approveJoinRequest(supabase, req);
@@ -74,7 +77,7 @@ export function JoinRequestQueue({
   };
 
   const handleDeclineConfirm = async () => {
-    if (!declineModalReq || !supabase || isProcessing) return;
+    if (!declineModalReq || !supabase || isProcessing || isSuspended) return;
     setIsProcessing(true);
     try {
       await declineJoinRequest(
@@ -217,16 +220,30 @@ export function JoinRequestQueue({
               {/* Action Buttons */}
               <div className="pt-2 border-t border-zinc-100 flex items-center justify-end gap-2">
                 <button
-                  onClick={() => setDeclineModalReq(req)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-600 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    if (!isSuspended) setDeclineModalReq(req);
+                  }}
+                  disabled={isSuspended}
+                  title={isSuspended ? "Join request resolution disabled while suspended." : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-600 transition whitespace-nowrap ${
+                    isSuspended ? "opacity-40 cursor-not-allowed" : "hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                  }`}
                 >
                   <UserX className="w-3.5 h-3.5" />
                   <span>Decline</span>
                 </button>
 
                 <button
-                  onClick={() => handleApprove(req)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    if (!isSuspended) handleApprove(req);
+                  }}
+                  disabled={isSuspended}
+                  title={isSuspended ? "Join request resolution disabled while suspended." : undefined}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] text-white text-xs font-semibold shadow-xs transition whitespace-nowrap ${
+                    isSuspended ? "opacity-40 cursor-not-allowed" : "hover:bg-[#5E141B] cursor-pointer"
+                  }`}
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Approve & Link Slot</span>
