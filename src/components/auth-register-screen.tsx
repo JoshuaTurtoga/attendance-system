@@ -39,7 +39,7 @@ export function AuthRegisterScreen() {
     e.preventDefault();
 
     if (!validateStudentNumber(studentNumber)) {
-      setError("Student number must follow the YYYY-NNNNN format (e.g. 2024-10492).");
+      setError("Please enter your student number.");
       return;
     }
     if (!isUniversityEmail(email)) {
@@ -117,8 +117,7 @@ export function AuthRegisterScreen() {
 
         <AuthField
           label="Student Number"
-          placeholder="2024-10492"
-          hint="Format: YYYY-NNNNN"
+          placeholder="e.g. 2024-10492 or 2410492"
           icon={<Hash className="w-4 h-4" />}
           value={studentNumber}
           onChange={(e) => setStudentNumber(e.target.value)}

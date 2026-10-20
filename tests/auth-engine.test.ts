@@ -38,11 +38,15 @@ test("Auth Engine: validatePassword enforces length and mixed character classes"
   assert.equal(validatePassword("Academia2026!").valid, true);
 });
 
-test("Auth Engine: validateStudentNumber enforces the YYYY-NNNNN university format", () => {
+test("Auth Engine: validateStudentNumber accepts student numbers without strict format restrictions", () => {
   assert.equal(validateStudentNumber("2024-10492"), true);
   assert.equal(validateStudentNumber("2024-101010"), true);
-  assert.equal(validateStudentNumber("2410492"), false);
-  assert.equal(validateStudentNumber("2024-104"), false);
+  assert.equal(validateStudentNumber("2410492"), true);
+  assert.equal(validateStudentNumber("2024-104"), true);
+  assert.equal(validateStudentNumber("10492"), true);
+  assert.equal(validateStudentNumber("S-12345"), true);
+  assert.equal(validateStudentNumber(""), false);
+  assert.equal(validateStudentNumber("   "), false);
 });
 
 test("Auth Engine: maskEmail hides the local part beyond the first two characters", () => {

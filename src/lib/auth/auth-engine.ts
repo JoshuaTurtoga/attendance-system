@@ -159,9 +159,9 @@ export function validatePassword(password: string): {
   return { valid: true };
 }
 
-/** University student numbers follow the YYYY-NNNNN format (e.g. 2024-10492). */
+/** Validates student numbers. Accepts any non-empty student ID string. */
 export function validateStudentNumber(studentNumber: string): boolean {
-  return /^\d{4}-\d{4,6}$/.test(studentNumber.trim());
+  return Boolean(studentNumber && studentNumber.trim().length > 0);
 }
 
 /** Masks an email for display, e.g. "elena.vance@u.edu" -> "el***@u.edu". */
