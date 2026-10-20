@@ -294,12 +294,12 @@ export function ClassAttendanceSheet({
 
       {/* Primary Toolbar & Action Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26] whitespace-nowrap">
               Attendance Management
             </span>
-            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded font-semibold">
+            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded font-semibold whitespace-nowrap">
               3 Late = 1 Absence Policy
             </span>
           </div>
@@ -342,14 +342,14 @@ export function ClassAttendanceSheet({
 
       {/* Discrepancy Alert for Selected Session */}
       {discrepanciesForDate.length > 0 && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="font-semibold">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="font-semibold min-w-0 break-words">
               Cross-Module Conflict on {selectedDate}: {discrepanciesForDate[0].message}
             </span>
           </div>
-          <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded">
+          <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded whitespace-nowrap self-start sm:self-auto shrink-0">
             Review Status
           </span>
         </div>
@@ -375,10 +375,10 @@ export function ClassAttendanceSheet({
           </select>
 
           {/* Session Classification Toggle (DOCUMENTATION.md § 4.B.TAB 2) */}
-          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl text-[11px] font-medium text-zinc-600">
+          <div className="flex flex-wrap items-center gap-1 bg-zinc-100 p-1 rounded-xl text-[11px] font-medium text-zinc-600">
             <button
               onClick={() => handleSetSessionType("regular")}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                 activeSessionType === "regular"
                   ? "bg-white text-zinc-900 font-bold shadow-xs"
                   : "hover:text-zinc-900"
@@ -388,7 +388,7 @@ export function ClassAttendanceSheet({
             </button>
             <button
               onClick={() => handleSetSessionType("makeup")}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                 activeSessionType === "makeup"
                   ? "bg-purple-600 text-white font-bold shadow-xs"
                   : "hover:text-zinc-900"
@@ -398,7 +398,7 @@ export function ClassAttendanceSheet({
             </button>
             <button
               onClick={() => handleSetSessionType("holiday")}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                 activeSessionType === "holiday"
                   ? "bg-amber-600 text-white font-bold shadow-xs"
                   : "hover:text-zinc-900"
@@ -409,7 +409,7 @@ export function ClassAttendanceSheet({
             </button>
             <button
               onClick={() => handleSetSessionType("suspended")}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                 activeSessionType === "suspended"
                   ? "bg-blue-600 text-white font-bold shadow-xs"
                   : "hover:text-zinc-900"
@@ -420,7 +420,7 @@ export function ClassAttendanceSheet({
             </button>
             <button
               onClick={() => handleSetSessionType("instructor_absence")}
-              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                 activeSessionType === "instructor_absence"
                   ? "bg-[#7C1D26] text-white font-bold shadow-xs"
                   : "hover:text-zinc-900"

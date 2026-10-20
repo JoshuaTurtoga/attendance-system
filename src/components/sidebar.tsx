@@ -370,7 +370,7 @@ export function Sidebar({
                 className="fixed inset-0 z-40 bg-zinc-950/20 backdrop-blur-xs"
                 onClick={() => setPersonaMenuOpen(false)}
               />
-              <div className="absolute left-0 bottom-full mb-3 z-50 w-72 rounded-2xl bg-white border border-zinc-200/90 shadow-2xl p-2.5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute left-0 bottom-full mb-3 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white border border-zinc-200/90 shadow-2xl p-2.5 animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-3 py-2 border-b border-zinc-100">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                     Switch Test Persona

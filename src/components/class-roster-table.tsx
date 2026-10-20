@@ -123,23 +123,23 @@ export function ClassRosterTable({
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* Sub-Tab Navigation: Roster vs Join Queue */}
-      <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200/80 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveSubTab("table")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
               activeSubTab === "table"
                 ? "bg-[#7C1D26] text-white shadow-sm"
                 : "text-zinc-600 hover:bg-zinc-100"
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 shrink-0" />
             <span>Master Class List ({students.length})</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab("queue")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
               activeSubTab === "queue"
                 ? "bg-[#7C1D26] text-white shadow-sm"
                 : "text-zinc-600 hover:bg-zinc-100"
@@ -162,26 +162,26 @@ export function ClassRosterTable({
         </div>
 
         {activeSubTab === "table" && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsPasteModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer whitespace-nowrap"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#7C1D26]" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#7C1D26] shrink-0" />
               <span>Paste from Sheets</span>
             </button>
 
             <button
               onClick={() => setIsAddingInline(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 shadow-xs transition cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-3.5 h-3.5 text-zinc-600" />
+              <Plus className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
               <span>Add Row</span>
             </button>
 
             <button
               onClick={handleSaveAll}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition cursor-pointer whitespace-nowrap"
             >
               {savedSuccess ? (
                 <>
@@ -212,15 +212,15 @@ export function ClassRosterTable({
       {/* Render Master 5-Column Roster Table */}
       {activeSubTab === "table" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="relative w-full sm:w-64 shrink-0">
               <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search roster by name, ID..."
-                className="pl-9 pr-4 py-1.5 text-xs rounded-xl border border-zinc-200/90 bg-white w-64 focus:outline-none focus:ring-2 focus:ring-[#7C1D26]/30 font-medium"
+                className="pl-9 pr-4 py-1.5 text-xs rounded-xl border border-zinc-200/90 bg-white w-full focus:outline-none focus:ring-2 focus:ring-[#7C1D26]/30 font-medium"
               />
             </div>
             <p className="text-xs text-zinc-400">
@@ -229,7 +229,7 @@ export function ClassRosterTable({
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-zinc-200/90 bg-white shadow-sm">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[720px] text-left border-collapse">
               <thead>
                 <tr className="bg-zinc-50/90 border-b border-zinc-200/80 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
                   <th className="py-3 px-4 w-12 text-center">#</th>

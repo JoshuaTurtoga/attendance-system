@@ -210,10 +210,10 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
     <div className="space-y-8">
       {/* Toast Notification */}
       {joinSuccessBanner && (
-        <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{joinSuccessBanner}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
+          <div className="flex items-start sm:items-center gap-2 min-w-0">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="min-w-0 break-words">{joinSuccessBanner}</span>
           </div>
         </div>
       )}
@@ -223,15 +223,15 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
         className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border-l-4 border-l-[#7C1D26]"
         style={{ "--i": 0 } as React.CSSProperties}
       >
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#7C1D26]">
-            <GraduationCap className="w-4 h-4" />
-            <span>Official University Student Portal</span>
+            <GraduationCap className="w-4 h-4 shrink-0" />
+            <span className="min-w-0 truncate">Official University Student Portal</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight truncate">
             Welcome, {studentName}
           </h1>
-          <p className="text-xs text-zinc-500 mt-1 font-mono">
+          <p className="text-xs text-zinc-500 mt-1 font-mono break-words">
             Student Number: {studentNumber} • {program} ({academicLevel}) • {currentUser.email}
           </p>
         </div>
@@ -249,7 +249,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             </button>
 
             {isNotificationOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-zinc-200 p-4 z-40 space-y-3 animate-in fade-in">
+              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-zinc-200 p-4 z-40 space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
                   <span className="text-xs font-bold text-zinc-900">Notifications</span>
                   <span className="text-[10px] text-zinc-400 font-mono">Real-Time Alerts</span>
@@ -332,8 +332,8 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                   style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
                           {cls.courseCode} • {cls.section}
                         </span>
@@ -341,7 +341,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                           {cls.classType}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-zinc-950 mt-2 group-hover:text-[#7C1D26] transition">
+                      <h3 className="text-base font-bold text-zinc-950 mt-2 group-hover:text-[#7C1D26] transition break-words">
                         {cls.courseTitle}
                       </h3>
                       <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2">
@@ -358,7 +358,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
 
                   {/* Today's Live Status Indicators */}
                   <div className="p-4 rounded-2xl bg-zinc-50/80 border border-zinc-200/80 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="font-semibold text-zinc-600">Today&apos;s Roll-Call Status:</span>
                       {todayRecord ? (
                         <span
@@ -387,7 +387,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="font-semibold text-zinc-600">Assessments Today:</span>
                       {todayGradesList.length > 0 ? (
                         <div className="text-right">
@@ -406,7 +406,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                   </div>
 
                   {/* Overall Standing Footer */}
-                  <div className="pt-2 flex items-center justify-between text-xs border-t border-zinc-100">
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-zinc-100">
                     <span className="text-zinc-500">
                       Overall Standing: <strong className="text-zinc-900">{summary.grades.finalGrade}%</strong> ({summary.grades.letterGrade})
                     </span>
@@ -459,8 +459,8 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                   style={{ "--i": 3 + idx } as React.CSSProperties}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
                           {cls.courseCode} • {cls.section}
                         </span>
@@ -468,7 +468,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                           {cls.classType}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-zinc-950 mt-1.5 group-hover:text-[#7C1D26] transition">
+                      <h3 className="text-base font-bold text-zinc-950 mt-1.5 group-hover:text-[#7C1D26] transition break-words">
                         {cls.courseTitle}
                       </h3>
                       <p className="text-xs text-zinc-500 mt-0.5">
@@ -515,7 +515,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                     </div>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between text-xs text-zinc-400">
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                     <span>{summary.attendance.effectiveAbsences} effective absences recorded</span>
                     <span className="text-[#7C1D26] font-bold text-xs flex items-center gap-1">
                       <span>Full Record</span>
@@ -538,12 +538,12 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80"
             style={{ "--i": 2 } as React.CSSProperties}
           >
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26] whitespace-nowrap">
                   Personal College Timetable
                 </span>
-                <span className="text-[10px] font-mono bg-zinc-200 text-zinc-700 px-2 py-0.5 rounded font-semibold">
+                <span className="text-[10px] font-mono bg-zinc-200 text-zinc-700 px-2 py-0.5 rounded font-semibold whitespace-nowrap">
                   Unified Schedule
                 </span>
               </div>
@@ -557,9 +557,9 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
 
             <button
               onClick={() => setIsExternalModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 text-[#7C1D26]" />
+              <Plus className="w-4 h-4 text-[#7C1D26] shrink-0" />
               <span>Add External Subject</span>
             </button>
           </div>
@@ -660,13 +660,13 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
               ) : (
                 joinRequests.map((req) => (
                   <div key={req.id} className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-zinc-900">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-zinc-900 whitespace-nowrap">
                           Class Application #{req.id}
                         </span>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${
                             req.status === "approved"
                               ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                               : req.status === "declined"

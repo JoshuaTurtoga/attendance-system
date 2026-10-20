@@ -257,9 +257,9 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
     <div className="space-y-8">
       {/* Toast notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-zinc-950 text-white shadow-2xl border border-zinc-800 flex items-center gap-3 text-xs font-semibold animate-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-zinc-950 text-white shadow-2xl border border-zinc-800 flex items-start gap-3 text-xs font-semibold animate-in slide-in-from-bottom-2 duration-200 max-w-[calc(100vw-3rem)]">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <span className="min-w-0 break-words">{toastMessage}</span>
         </div>
       )}
 
@@ -271,12 +271,12 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
         <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-800">
           <ShieldAlert className="w-5 h-5" />
         </div>
-        <div className="text-xs space-y-1">
-          <div className="flex items-center gap-2">
+        <div className="text-xs space-y-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-amber-900 text-sm">
-              Institutional Governance & Strict Academic Privacy Active
+              Institutional Governance &amp; Strict Academic Privacy Active
             </p>
-            <span className="px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 text-[10px] font-bold whitespace-nowrap">
               DOC § 3.5 ENFORCED
             </span>
           </div>
@@ -596,16 +596,16 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
         <div className="space-y-6">
           {/* Read-Only Notice */}
           <div
-            className="stagger-block p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs flex items-center justify-between"
+            className="stagger-block p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
             style={{ "--i": 2 } as React.CSSProperties}
           >
-            <div className="flex items-center gap-2.5">
-              <Info className="w-4 h-4 text-zinc-500 shrink-0" />
-              <span>
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+              <Info className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5 sm:mt-0" />
+              <span className="min-w-0 break-words">
                 <strong>Read-Only Oversight:</strong> You have high-level visibility across all active class enrollments and course assignments. Individual gradebooks and attendance sheets are locked to assigned instructors.
               </span>
             </div>
-            <span className="text-[11px] text-zinc-500 font-mono font-semibold">
+            <span className="text-[11px] text-zinc-500 font-mono font-semibold whitespace-nowrap self-start sm:self-auto shrink-0">
               Term: {systemConfig.activeTerm}
             </span>
           </div>

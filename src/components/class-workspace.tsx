@@ -152,33 +152,42 @@ export function ClassWorkspace({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{toastMessage}</span>
+        <div
+          className="stagger-block flex items-start gap-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2"
+          style={{ "--i": 0 } as React.CSSProperties}
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <span className="min-w-0 break-words">{toastMessage}</span>
         </div>
       )}
 
       {/* Discrepancy Alert Banner */}
       {discrepancies.length > 0 && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs shadow-xs">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="font-semibold">
+        <div
+          className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs shadow-xs"
+          style={{ "--i": 0 } as React.CSSProperties}
+        >
+          <div className="flex items-start sm:items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="font-semibold min-w-0 break-words">
               Cross-Module Audit: {discrepancies.length} attendance vs. grade conflict detected ({discrepancies[0].activityTitle}).
             </span>
           </div>
-          <span className="text-[11px] font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded">
+          <span className="text-[11px] font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded whitespace-nowrap self-start sm:self-auto shrink-0">
             {discrepancies[0].studentName} (Absent with Score)
           </span>
         </div>
       )}
 
       {/* Class Identity Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-card border border-zinc-200/80">
-        <div>
+      <div
+        className="stagger-block flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 rounded-3xl glass-card border border-zinc-200/80"
+        style={{ "--i": 0 } as React.CSSProperties}
+      >
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="text-sm font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-1 rounded-lg border border-[#7C1D26]/20 whitespace-nowrap">
               {academicClass.courseCode} • {academicClass.section}
@@ -256,7 +265,10 @@ export function ClassWorkspace({
       </div>
 
       {/* Tab Content Panes with Live State Sync — navigation driven by sidebar */}
-      <div className="p-4 md:p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px]">
+      <div
+        className="stagger-block p-4 md:p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px] min-w-0"
+        style={{ "--i": 1 } as React.CSSProperties}
+      >
         {activeTab === "roster" && (
           <ClassRosterTable classId={academicClass.id} />
         )}

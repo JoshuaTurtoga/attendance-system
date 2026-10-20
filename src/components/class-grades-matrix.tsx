@@ -193,22 +193,22 @@ export function ClassGradesMatrix({
     <div className="space-y-6">
       {/* Toast Notification */}
       {successToast && (
-        <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{successToast}</span>
+        <div className="flex items-start gap-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <span className="min-w-0 break-words">{successToast}</span>
         </div>
       )}
 
       {/* Cross-Module Discrepancy Alert */}
       {discrepancies.length > 0 && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="font-semibold">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-xs animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="font-semibold min-w-0 break-words">
               Cross-Module Audit: {discrepancies[0].message}
             </span>
           </div>
-          <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded">
+          <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded whitespace-nowrap self-start sm:self-auto shrink-0">
             Attendance Conflict
           </span>
         </div>
@@ -216,12 +216,12 @@ export function ClassGradesMatrix({
 
       {/* Primary Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7C1D26] whitespace-nowrap">
               Categorized Gradebook
             </span>
-            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded font-semibold">
+            <span className="text-[10px] font-mono bg-zinc-200/80 text-zinc-700 px-2 py-0.5 rounded font-semibold whitespace-nowrap">
               Quizzes 25% · PTs 45% · Exams 30%
             </span>
           </div>
@@ -237,9 +237,9 @@ export function ClassGradesMatrix({
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-xs font-bold shadow-xs transition cursor-pointer whitespace-nowrap"
           >
-            <Plus className="w-4 h-4 text-[#7C1D26]" />
+            <Plus className="w-4 h-4 text-[#7C1D26] shrink-0" />
             <span>Add a Record</span>
           </button>
 
@@ -252,9 +252,9 @@ export function ClassGradesMatrix({
                 setIsAddModalOpen(true);
               }
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-4 h-4 shrink-0" />
             <span>Launch Rapid Grading</span>
           </button>
         </div>
