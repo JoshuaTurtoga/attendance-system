@@ -37,6 +37,7 @@ import { EmptyState } from "./empty-state";
 import { StudentClassDetailModal } from "./student-class-detail-modal";
 import { StudentJoinClassModal } from "./student-join-class-modal";
 import { StudentExternalClassModal } from "./student-external-class-modal";
+import { parseDepartment } from "@/lib/auth/auth-engine";
 import {
   GraduationCap,
   KeyRound,
@@ -313,12 +314,23 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
     </div>
   );
 
-  const metaParts = [
+  const deptParsed = parseDepartment(program);
+  const desktopProgramLabel = deptParsed.name
+    ? (academicLevel ? `${deptParsed.name} (${academicLevel})` : deptParsed.name)
+    : (academicLevel ? `${program} (${academicLevel})` : program);
+  const mobileProgramLabel = deptParsed.code
+    ? (academicLevel ? `${deptParsed.code} (${academicLevel})` : deptParsed.code)
+    : (academicLevel ? `${program} (${academicLevel})` : program);
+
+  const desktopMetaParts = [
     studentNumber ? `Student Number: ${studentNumber}` : null,
-    program && academicLevel
-      ? `${program} (${academicLevel})`
-      : program || academicLevel || null,
+    desktopProgramLabel || null,
     currentUser?.email ?? null,
+  ].filter(Boolean) as string[];
+
+  const mobileMetaParts = [
+    studentNumber ? `ID: ${studentNumber}` : null,
+    mobileProgramLabel || null,
   ].filter(Boolean) as string[];
 
   return (
@@ -346,9 +358,10 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
           <h1 className="text-2xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight truncate">
             Welcome{studentName ? `, ${studentName}` : ""}
           </h1>
-          {metaParts.length > 0 && (
+          {(desktopMetaParts.length > 0 || mobileMetaParts.length > 0) && (
             <p className="text-xs text-zinc-500 mt-1 font-mono truncate">
-              {metaParts.join(" • ")}
+              <span className="hidden sm:inline">{desktopMetaParts.join(" • ")}</span>
+              <span className="sm:hidden">{mobileMetaParts.join(" • ")}</span>
             </p>
           )}
         </div>

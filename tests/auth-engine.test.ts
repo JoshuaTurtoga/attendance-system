@@ -7,6 +7,9 @@ import {
   validatePassword,
   validateStudentNumber,
   maskEmail,
+  UNIVERSITY_DEPARTMENTS,
+  parseDepartment,
+  formatDepartment,
 } from "../src/lib/auth/auth-engine.ts";
 
 test("Auth Engine: normalizeEmail trims and lowercases the address", () => {
@@ -46,3 +49,59 @@ test("Auth Engine: maskEmail hides the local part beyond the first two character
   assert.equal(maskEmail("elena.vance@university.edu"), "el*********@university.edu");
   assert.equal(maskEmail("no-domain"), "no-domain");
 });
+
+test("Auth Engine: UNIVERSITY_DEPARTMENTS defines the 11 official departments with separated names and abbreviations", () => {
+  assert.equal(UNIVERSITY_DEPARTMENTS.length, 11);
+  const cba = UNIVERSITY_DEPARTMENTS.find((d) => d.code === "CBA");
+  assert.ok(cba);
+  assert.equal(cba?.name, "College of Business and Accountancy");
+  assert.equal(cba?.code, "CBA");
+
+  const vdtalc = UNIVERSITY_DEPARTMENTS.find((d) => d.code === "VDTALC");
+  assert.ok(vdtalc);
+  assert.equal(vdtalc?.name, "Victoriano D. Tirol Advanced Learning Center");
+});
+
+test("Auth Engine: parseDepartment splits department into full name and abbreviation across formats", () => {
+  // Colon format
+  assert.deepEqual(parseDepartment("College of Business and Accountancy: CBA"), {
+    name: "College of Business and Accountancy",
+    code: "CBA",
+  });
+
+  // Parentheses format
+  assert.deepEqual(parseDepartment("College of Law (COL)"), {
+    name: "College of Law",
+    code: "COL",
+  });
+
+  // Full name only
+  assert.deepEqual(parseDepartment("College of Criminal Justice"), {
+    name: "College of Criminal Justice",
+    code: "CCJ",
+  });
+
+  // Code only
+  assert.deepEqual(parseDepartment("CETAFA"), {
+    name: "College of Engineering, Technology, Architecture, and Fine Arts",
+    code: "CETAFA",
+  });
+
+  // Custom or unknown fallback
+  assert.deepEqual(parseDepartment("Computer Science"), {
+    name: "Computer Science",
+    code: "CS",
+  });
+
+  // Empty or undefined
+  assert.deepEqual(parseDepartment(""), { name: "", code: "" });
+  assert.deepEqual(parseDepartment(null), { name: "", code: "" });
+});
+
+test("Auth Engine: formatDepartment supports full, short (abbreviation), and both modes", () => {
+  const dept = "College of Pharmacy: COP";
+  assert.equal(formatDepartment(dept, "full"), "College of Pharmacy");
+  assert.equal(formatDepartment(dept, "short"), "COP");
+  assert.equal(formatDepartment(dept, "both"), "College of Pharmacy (COP)");
+});
+

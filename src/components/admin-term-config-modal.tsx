@@ -17,6 +17,7 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
+import { parseDepartment } from "@/lib/auth/auth-engine";
 
 interface AdminTermConfigModalProps {
   isOpen: boolean;
@@ -42,7 +43,8 @@ export function AdminTermConfigModal({
   const [departments, setDepartments] = useState<string[]>([
     ...initialConfig.departments,
   ]);
-  const [newDeptInput, setNewDeptInput] = useState("");
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptCode, setNewDeptCode] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -50,14 +52,36 @@ export function AdminTermConfigModal({
 
   const handleAddDepartment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDeptInput.trim()) return;
-    const trimmed = newDeptInput.trim();
-    if (departments.some((d) => d.toLowerCase() === trimmed.toLowerCase())) {
-      setErrorMsg(`Department "${trimmed}" already exists.`);
+    const trimmedName = newDeptName.trim();
+    if (!trimmedName) return;
+
+    let trimmedCode = newDeptCode.trim().toUpperCase();
+    if (!trimmedCode) {
+      // Derive uppercase abbreviation if empty
+      const words = trimmedName.split(/\s+/).filter(Boolean);
+      trimmedCode =
+        words.length > 1
+          ? words.map((w) => w[0].toUpperCase()).join("")
+          : trimmedName.slice(0, 4).toUpperCase();
+    }
+
+    const formatted = `${trimmedName}: ${trimmedCode}`;
+    if (
+      departments.some((d) => {
+        const parsed = parseDepartment(d);
+        return (
+          parsed.name.toLowerCase() === trimmedName.toLowerCase() ||
+          parsed.code.toLowerCase() === trimmedCode.toLowerCase()
+        );
+      })
+    ) {
+      setErrorMsg(`Department "${trimmedName}" (${trimmedCode}) already exists.`);
       return;
     }
-    setDepartments([...departments, trimmed]);
-    setNewDeptInput("");
+
+    setDepartments([...departments, formatted]);
+    setNewDeptName("");
+    setNewDeptCode("");
     setErrorMsg(null);
   };
 
@@ -238,41 +262,58 @@ export function AdminTermConfigModal({
               Academic Departments ({departments.length})
             </h4>
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input
                 type="text"
-                value={newDeptInput}
-                onChange={(e) => setNewDeptInput(e.target.value)}
-                placeholder="Add department (e.g. Mechanical Engineering)"
-                className="flex-1 px-3.5 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26]"
+                value={newDeptName}
+                onChange={(e) => setNewDeptName(e.target.value)}
+                placeholder="Department Name (e.g. College of Pharmacy)"
+                className="sm:col-span-2 px-3.5 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26]"
               />
-              <button
-                type="button"
-                onClick={handleAddDepartment}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add
-              </button>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newDeptCode}
+                  onChange={(e) => setNewDeptCode(e.target.value.toUpperCase())}
+                  placeholder="Code (e.g. COP)"
+                  className="w-24 px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26] uppercase font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddDepartment}
+                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-2 bg-zinc-50 rounded-2xl border border-zinc-200/80">
-              {departments.map((dept) => (
-                <span
-                  key={dept}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-zinc-200 text-xs font-medium text-zinc-800 shadow-xs"
-                >
-                  {dept}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveDepartment(dept)}
-                    className="text-zinc-400 hover:text-rose-600 transition cursor-pointer"
-                    title="Remove Department"
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-zinc-50 rounded-2xl border border-zinc-200/80">
+              {departments.map((dept) => {
+                const { name, code } = parseDepartment(dept);
+                return (
+                  <span
+                    key={dept}
+                    className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white border border-zinc-200 text-xs font-medium text-zinc-800 shadow-xs"
+                    title={code ? `${name} (${code})` : name}
                   >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
+                    <span className="hidden sm:inline">{name}</span>
+                    <span className="sm:hidden">{code}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-600 font-mono font-bold">
+                      {code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDepartment(dept)}
+                      className="text-zinc-400 hover:text-rose-600 transition cursor-pointer ml-0.5"
+                      title="Remove Department"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           </div>
 

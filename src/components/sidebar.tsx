@@ -23,6 +23,7 @@ import {
   getSidebarAriaAttributes,
   findActiveTabIndex,
 } from "@/lib/sidebar/sidebar-engine";
+import { DepartmentLabel } from "@/components/department-label";
 
 export interface SidebarNavItem {
   id: string;
@@ -339,7 +340,11 @@ export function Sidebar({
                     : "Signed in"}
                 </p>
                 <p className="text-[10px] text-zinc-500 truncate">
-                  {currentUser?.department || currentUser?.studentNumber || ""}
+                  {currentUser?.department ? (
+                    <DepartmentLabel department={currentUser.department} />
+                  ) : (
+                    currentUser?.studentNumber || ""
+                  )}
                 </p>
               </div>
             </div>

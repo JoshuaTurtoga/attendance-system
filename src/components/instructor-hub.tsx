@@ -21,6 +21,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
+import { DepartmentLabel } from "./department-label";
 
 const emptySubscribe = () => () => {};
 
@@ -121,7 +122,7 @@ export function InstructorHub({
             Good day{instructorLastName ? `, ${instructorLastName}` : ""}
           </h1>
           <p className="text-xs md:text-sm text-zinc-500 mt-1 truncate">
-            {instructorDepartment} • {classes.length} active{" "}
+            <DepartmentLabel department={instructorDepartment} fallback="Faculty" /> • {classes.length} active{" "}
             {classes.length === 1 ? "class" : "classes"}
           </p>
         </div>

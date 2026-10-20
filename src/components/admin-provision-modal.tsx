@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   Building,
 } from "lucide-react";
+import { DepartmentLabel } from "./department-label";
+import { parseDepartment } from "@/lib/auth/auth-engine";
 
 interface AdminProvisionModalProps {
   isOpen: boolean;
@@ -153,7 +155,12 @@ export function AdminProvisionModal({
                 <span className="text-[10px] uppercase font-bold text-zinc-400 block font-sans">
                   Academic Department
                 </span>
-                <span className="text-zinc-800">{provisionedData.user.department}</span>
+                <span className="text-zinc-800">
+                  <DepartmentLabel
+                    department={provisionedData.user.department}
+                    showCodeOnDesktop
+                  />
+                </span>
               </div>
 
               <div className="pt-2 border-t border-zinc-200">
@@ -293,11 +300,14 @@ export function AdminProvisionModal({
                   onChange={(e) => setDepartment(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7C1D26]"
                 >
-                  {departments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
+                  {departments.map((dept) => {
+                    const { name, code } = parseDepartment(dept);
+                    return (
+                      <option key={dept} value={dept}>
+                        {name && code ? `${name} (${code})` : dept}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

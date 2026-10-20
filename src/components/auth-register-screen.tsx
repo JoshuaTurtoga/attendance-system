@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { AuthShell, AuthField, AuthErrorBanner } from "./auth-shell";
 import {
   DEPARTMENTS,
+  UNIVERSITY_DEPARTMENTS,
   isUniversityEmail,
   universityEmailErrorMessage,
   validateStudentNumber,
@@ -149,9 +150,9 @@ export function AuthRegisterScreen() {
               onChange={(e) => setDepartment(e.target.value)}
               className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#7C1D26] focus:border-transparent transition cursor-pointer"
             >
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
+              {UNIVERSITY_DEPARTMENTS.map((d) => (
+                <option key={d.code} value={`${d.name}: ${d.code}`}>
+                  {d.name} ({d.code})
                 </option>
               ))}
             </select>

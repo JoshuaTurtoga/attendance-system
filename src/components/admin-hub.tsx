@@ -16,6 +16,7 @@ import {
 import { AdminProvisionModal } from "./admin-provision-modal";
 import { AdminTermConfigModal } from "./admin-term-config-modal";
 import { EmptyState } from "./empty-state";
+import { DepartmentLabel, DepartmentBadge } from "./department-label";
 import {
   ShieldAlert,
   Users,
@@ -539,7 +540,10 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
 
                         <td className="py-3 px-4">
                           <p className="font-medium text-zinc-900">
-                            {user.department || "General Administration"}
+                            <DepartmentLabel
+                              department={user.department}
+                              fallback="General Administration"
+                            />
                           </p>
                           {user.studentNumber && (
                             <p className="text-[10px] text-zinc-400 font-mono">
@@ -674,7 +678,9 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className="text-zinc-600">{cls.department}</span>
+                          <span className="text-zinc-600">
+                            <DepartmentLabel department={cls.department} />
+                          </span>
                         </td>
 
                         <td className="py-3 px-4">
@@ -814,12 +820,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
                 </p>
               ) : (
                 systemConfig.departments.map((dept) => (
-                  <span
-                    key={dept}
-                    className="px-3.5 py-1.5 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs font-semibold text-zinc-800 shadow-xs"
-                  >
-                    {dept}
-                  </span>
+                  <DepartmentBadge key={dept} department={dept} />
                 ))
               )}
             </div>
