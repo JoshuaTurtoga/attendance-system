@@ -1,17 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./env";
 
 /**
- * Creates a server-side Supabase client for Server Components, Server Actions, and Route Handlers.
+ * Creates a server-side Supabase client for Server Components, Server Actions
+ * and Route Handlers. Returns null when the project has not been configured.
  */
-export async function createClient() {
-  const cookieStore = await cookies();
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+export async function createClient(): Promise<SupabaseClient | null> {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  const cookieStore = await cookies();
+
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -22,7 +25,7 @@ export async function createClient() {
             cookieStore.set(name, value, options)
           );
         } catch {
-          // In Server Components, cookie setting can be ignored if middleware handles session refresh.
+          // Called from a Server Component; the proxy refreshes the session instead.
         }
       },
     },

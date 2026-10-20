@@ -14,8 +14,8 @@ export function canUserModifyAcademicRecords(role: Role): boolean {
 }
 
 /**
- * Dual-Role POV Toggle resolution (DOCUMENTATION.md § 3.4):
- * Returns the set of views the user is entitled to switch between.
+ * Role view resolution:
+ * Returns the set of views the user is entitled to access.
  */
 export function getAvailableViews(roles: Role[]): Role[] {
   if (!roles || roles.length === 0) {

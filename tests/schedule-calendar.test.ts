@@ -17,7 +17,7 @@ const mockClasses: AcademicClass[] = [
     classType: "Lecture",
     units: 3,
     term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
+    instructorId: "usr_inst_01",
     joinCode: "ABC234",
     schedule: [
       { dayOfWeek: "Monday", startTime: "09:00", endTime: "10:30", room: "Room 402" },
@@ -34,7 +34,7 @@ const mockClasses: AcademicClass[] = [
     classType: "Laboratory",
     units: 3,
     term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
+    instructorId: "usr_inst_01",
     joinCode: "XYZ789",
     schedule: [
       { dayOfWeek: "Monday", startTime: "13:00", endTime: "16:00", room: "Lab 3" },
@@ -51,7 +51,7 @@ const mockClasses: AcademicClass[] = [
     classType: "Lecture",
     units: 3,
     term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
+    instructorId: "usr_inst_01",
     joinCode: "DBM456",
     schedule: [
       { dayOfWeek: "Monday", startTime: "07:30", endTime: "09:00", room: "Room 201" },

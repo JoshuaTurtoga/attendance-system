@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAuth } from "@/features/auth/auth-context";
 import type { RosterStudent, JoinRequest } from "@/types";
 import {
   sortRosterAlphabetically,
@@ -9,6 +10,12 @@ import {
   SequencedStudent,
 } from "@/lib/roster/roster-engine";
 import { JoinRequestQueue } from "./join-request-queue";
+import {
+  deleteRosterStudent,
+  importRosterStudents,
+  listRoster,
+} from "@/lib/data/roster";
+import { EmptyState } from "./empty-state";
 import {
   Users,
   Plus,
@@ -22,24 +29,28 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { DEFAULT_ROSTER, DEFAULT_JOIN_REQUESTS } from "@/lib/roster/mock-roster";
-
 interface ClassRosterTableProps {
   classId: string;
-  initialStudents?: RosterStudent[];
+  sharedStudents: RosterStudent[];
+  onStudentsChange: (students: RosterStudent[]) => void;
+  sharedRequests: JoinRequest[];
+  onRequestsChange: (requests: JoinRequest[]) => void;
 }
 
 type RosterSubTab = "table" | "queue";
 
 export function ClassRosterTable({
   classId,
-  initialStudents = DEFAULT_ROSTER,
+  sharedStudents,
+  onStudentsChange,
+  sharedRequests,
+  onRequestsChange,
 }: ClassRosterTableProps) {
-  const [students, setStudents] = useState<RosterStudent[]>(initialStudents);
-  const [requests, setRequests] = useState<JoinRequest[]>(DEFAULT_JOIN_REQUESTS);
+  const { supabase } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<RosterSubTab>("table");
   const [searchQuery, setSearchQuery] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Bulk paste modal state
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
@@ -54,10 +65,20 @@ export function ClassRosterTable({
   const [draftProgram, setDraftProgram] = useState("BSCS");
   const [draftLevel, setDraftLevel] = useState("3rd Year");
 
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const pendingCount = sharedRequests.filter((r) => r.status === "pending").length;
+
+  const refreshRoster = async () => {
+    if (!supabase) return;
+    try {
+      const data = await listRoster(supabase, classId);
+      onStudentsChange(data);
+    } catch (err) {
+      console.error("Failed to refresh roster", err);
+    }
+  };
 
   // Alphabetically sorted roster
-  const sequencedRoster: SequencedStudent[] = sortRosterAlphabetically(students);
+  const sequencedRoster: SequencedStudent[] = sortRosterAlphabetically(sharedStudents);
 
   // Search filtered view
   const filteredRoster = sequencedRoster.filter(
@@ -73,30 +94,47 @@ export function ClassRosterTable({
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const handleDeleteStudent = (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+  const handleDeleteStudent = async (id: string) => {
+    if (!supabase || isProcessing) return;
+    if (!confirm("Are you sure you want to remove this student from the roster?")) return;
+
+    setIsProcessing(true);
+    try {
+      await deleteRosterStudent(supabase, id);
+      await refreshRoster();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete student");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleAddInlineSubmit = (e: React.FormEvent) => {
+  const handleAddInlineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draftStudentNumber.trim() || !draftFullName.trim()) return;
+    if (!draftStudentNumber.trim() || !draftFullName.trim() || !supabase || isProcessing) return;
 
-    const { lastName, firstName, middleInitial } = parseStudentName(draftFullName);
-    const newStudent: RosterStudent = {
-      id: `stud_${classId}_${Date.now()}`,
-      classId,
-      studentNumber: draftStudentNumber.trim(),
-      lastName,
-      firstName,
-      middleInitial,
-      program: draftProgram.trim(),
-      academicLevel: draftLevel.trim(),
-    };
-
-    setStudents((prev) => [...prev, newStudent]);
-    setDraftStudentNumber("");
-    setDraftFullName("");
-    setIsAddingInline(false);
+    setIsProcessing(true);
+    try {
+      const { lastName, firstName, middleInitial } = parseStudentName(draftFullName);
+      await importRosterStudents(supabase, classId, [
+        {
+          studentNumber: draftStudentNumber.trim(),
+          lastName,
+          firstName,
+          middleInitial: middleInitial || undefined,
+          program: draftProgram.trim(),
+          academicLevel: draftLevel.trim(),
+        },
+      ]);
+      await refreshRoster();
+      setDraftStudentNumber("");
+      setDraftFullName("");
+      setIsAddingInline(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to add student");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePreviewPaste = (text: string) => {
@@ -111,12 +149,31 @@ export function ClassRosterTable({
     }
   };
 
-  const handleConfirmPaste = () => {
-    if (pastePreview.length > 0) {
-      setStudents((prev) => [...prev, ...pastePreview]);
-      setIsPasteModalOpen(false);
-      setPasteRawText("");
-      setPastePreview([]);
+  const handleConfirmPaste = async () => {
+    if (pastePreview.length > 0 && supabase && !isProcessing) {
+      setIsProcessing(true);
+      try {
+        await importRosterStudents(
+          supabase,
+          classId,
+          pastePreview.map((s) => ({
+            studentNumber: s.studentNumber,
+            lastName: s.lastName,
+            firstName: s.firstName,
+            middleInitial: s.middleInitial,
+            program: s.program,
+            academicLevel: s.academicLevel,
+          }))
+        );
+        await refreshRoster();
+        setIsPasteModalOpen(false);
+        setPasteRawText("");
+        setPastePreview([]);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to import students");
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -134,7 +191,7 @@ export function ClassRosterTable({
             }`}
           >
             <Users className="w-4 h-4 shrink-0" />
-            <span>Master Class List ({students.length})</span>
+            <span>Master Class List ({sharedStudents.length})</span>
           </button>
 
           <button
@@ -202,10 +259,11 @@ export function ClassRosterTable({
       {/* Render Join Request Queue */}
       {activeSubTab === "queue" && (
         <JoinRequestQueue
-          requests={requests}
-          roster={students}
-          onRosterUpdated={(newRoster) => setStudents(newRoster)}
-          onRequestStatusUpdated={(updatedReqs) => setRequests(updatedReqs)}
+          classId={classId}
+          requests={sharedRequests}
+          roster={sharedStudents}
+          onRosterUpdated={onStudentsChange}
+          onRequestStatusUpdated={onRequestsChange}
         />
       )}
 
@@ -307,12 +365,28 @@ export function ClassRosterTable({
 
                 {filteredRoster.length === 0 && !isAddingInline ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-zinc-400">
-                      <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="font-semibold text-zinc-600">No students on roster</p>
-                      <p className="text-[11px] mt-0.5">
-                        Click &ldquo;Add Row&rdquo; or &ldquo;Paste from Sheets&rdquo; to populate the class list.
-                      </p>
+                    <td colSpan={6} className="py-8 px-4">
+                      <EmptyState
+                        icon={<Users className="w-6 h-6" />}
+                        title="No students on roster"
+                        description="Click &ldquo;Add Row&rdquo; or &ldquo;Paste from Sheets&rdquo; to populate the class list."
+                        action={
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setIsPasteModalOpen(true)}
+                              className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition cursor-pointer"
+                            >
+                              Paste from Sheets
+                            </button>
+                            <button
+                              onClick={() => setIsAddingInline(true)}
+                              className="px-4 py-2 rounded-xl bg-[#7C1D26] text-white text-xs font-semibold hover:bg-[#5E141B] transition cursor-pointer"
+                            >
+                              Add Row
+                            </button>
+                          </div>
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (

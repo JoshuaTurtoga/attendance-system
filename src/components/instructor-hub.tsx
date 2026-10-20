@@ -3,8 +3,10 @@
 import React, { useSyncExternalStore } from "react";
 import { useAuth } from "@/features/auth/auth-context";
 import type { AcademicClass } from "@/types";
+import type { CreateClassInput } from "@/lib/data/classes";
 import { ClassScheduleCalendar } from "./class-schedule-calendar";
 import { CreateClassModal } from "./create-class-modal";
+import { EmptyState } from "./empty-state";
 import type { WorkspaceTab } from "./class-workspace";
 import {
   Calendar,
@@ -16,6 +18,7 @@ import {
   Sparkles,
   TrendingUp,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 
@@ -27,73 +30,22 @@ export interface OpenClassOptions {
   gradingToday?: boolean;
 }
 
-// Initial default classes for the instructor
-export const INITIAL_INSTRUCTOR_CLASSES: AcademicClass[] = [
-  {
-    id: "cls_01",
-    courseCode: "STAS 101",
-    courseTitle: "Science, Technology and Society",
-    section: "E106-R",
-    classType: "Lecture",
-    units: 3,
-    term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
-    joinCode: "STA823",
-    schedule: [
-      { dayOfWeek: "Monday", startTime: "09:00", endTime: "10:30", room: "Room 402, Science Bldg" },
-      { dayOfWeek: "Wednesday", startTime: "09:00", endTime: "10:30", room: "Room 402, Science Bldg" },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "cls_02",
-    courseCode: "CS 312",
-    courseTitle: "Algorithms & Complex Data Structures",
-    section: "CS3A",
-    classType: "Laboratory",
-    units: 3,
-    term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
-    joinCode: "ALG491",
-    schedule: [
-      { dayOfWeek: "Monday", startTime: "13:00", endTime: "15:00", room: "Lab 3, IT Center" },
-      { dayOfWeek: "Thursday", startTime: "13:00", endTime: "15:00", room: "Lab 3, IT Center" },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "cls_03",
-    courseCode: "IT 221",
-    courseTitle: "Database Management Systems",
-    section: "IT2B",
-    classType: "Lecture",
-    units: 3,
-    term: "1st Semester 2026-2027",
-    instructorId: "usr_dual_01",
-    joinCode: "DBM902",
-    schedule: [
-      { dayOfWeek: "Tuesday", startTime: "10:30", endTime: "12:00", room: "Room 205, Main Hall" },
-      { dayOfWeek: "Friday", startTime: "10:30", endTime: "12:00", room: "Room 205, Main Hall" },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 export type InstructorViewTab = "today" | "calendar" | "classes";
 
 export interface InstructorHubProps {
   activeTab?: InstructorViewTab;
   classes: AcademicClass[];
-  onCreateClass: (newClass: AcademicClass) => void;
+  isLoading?: boolean;
+  errorMessage?: string | null;
+  onCreateClass: (input: CreateClassInput) => Promise<void>;
   onOpenClass: (cls: AcademicClass, options?: OpenClassOptions) => void;
 }
 
 export function InstructorHub({
   activeTab = "today",
   classes,
+  isLoading = false,
+  errorMessage = null,
   onCreateClass,
   onOpenClass,
 }: InstructorHubProps) {
@@ -128,9 +80,30 @@ export function InstructorHub({
     return timeA.localeCompare(timeB);
   });
 
-  const handleClassCreated = (newClass: AcademicClass) => {
-    onCreateClass(newClass);
+  const handleClassCreated = async (input: CreateClassInput) => {
+    await onCreateClass(input);
   };
+
+  const instructorLastName = currentUser?.lastName ?? "";
+  const instructorDepartment = currentUser?.department ?? "Faculty";
+
+  const emptyState = (
+    <EmptyState
+      icon={<BookOpen className="w-6 h-6" />}
+      title="No classes created yet"
+      description="Create your first class workspace to start recording attendance and grades. Every class gets its own roster, schedule, and join code."
+      action={
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4 shrink-0" />
+          <span>Create New Class</span>
+        </button>
+      }
+    />
+  );
 
   return (
     <div className="space-y-8">
@@ -145,10 +118,11 @@ export function InstructorHub({
             <span className="whitespace-nowrap">Faculty Workspace</span>
           </div>
           <h1 className="text-xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight truncate">
-            Good day, Dr. {currentUser.lastName}
+            Good day{instructorLastName ? `, ${instructorLastName}` : ""}
           </h1>
           <p className="text-xs md:text-sm text-zinc-500 mt-1 truncate">
-            Department of {currentUser.department} • {classes.length} active classes
+            {instructorDepartment} • {classes.length} active{" "}
+            {classes.length === 1 ? "class" : "classes"}
           </p>
         </div>
 
@@ -179,6 +153,18 @@ export function InstructorHub({
             </span>
           </div>
 
+          {errorMessage ? (
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+              {errorMessage}
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-xs font-semibold text-zinc-500">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
+              Loading your classes…
+            </div>
+          ) : classes.length === 0 ? (
+            emptyState
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {sortedTodayClasses.map((cls, idx) => {
               const primaryBlock = cls.schedule[0];
@@ -285,21 +271,29 @@ export function InstructorHub({
               );
             })}
           </div>
+          )}
         </div>
       )}
 
       {/* View: Weekly Schedule Timetable Grid (DOCUMENTATION.md § 4.B.3) */}
       {activeTab === "calendar" && (
         <div className="stagger-block" style={{ "--i": 1 } as React.CSSProperties}>
-          <ClassScheduleCalendar
-            classes={classes}
-            onSelectClass={(cls) => onOpenClass(cls)}
-          />
+          {classes.length === 0 && !isLoading ? (
+            emptyState
+          ) : (
+            <ClassScheduleCalendar
+              classes={classes}
+              onSelectClass={(cls) => onOpenClass(cls)}
+            />
+          )}
         </div>
       )}
 
       {/* View: All Classes Grid */}
       {activeTab === "classes" && (
+        classes.length === 0 && !isLoading ? (
+          emptyState
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {classes.map((cls, idx) => (
             <button
@@ -338,6 +332,7 @@ export function InstructorHub({
             </button>
           ))}
         </div>
+        )
       )}
 
       {/* Class Creation Modal */}
@@ -345,7 +340,6 @@ export function InstructorHub({
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onClassCreated={handleClassCreated}
-        instructorId={currentUser.id}
       />
     </div>
   );

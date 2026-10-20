@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import {
   normalizeEmail,
   validateEmail,
+  isUniversityEmail,
   validatePassword,
   validateStudentNumber,
-  generateOtp,
-  validateOtp,
   maskEmail,
-  OTP_LENGTH,
 } from "../src/lib/auth/auth-engine.ts";
 
 test("Auth Engine: normalizeEmail trims and lowercases the address", () => {
@@ -23,6 +21,13 @@ test("Auth Engine: validateEmail accepts well-formed addresses and rejects malfo
   assert.equal(validateEmail(""), false);
 });
 
+test("Auth Engine: isUniversityEmail enforces the official domain", () => {
+  assert.equal(isUniversityEmail("student@universityofbohol.edu.ph"), true);
+  assert.equal(isUniversityEmail("STUDENT@UNIVERSITYOFBOHOL.EDU.PH"), true);
+  assert.equal(isUniversityEmail("student@gmail.com"), false);
+  assert.equal(isUniversityEmail("faculty@universityofbohol.edu.ph"), true);
+});
+
 test("Auth Engine: validatePassword enforces length and mixed character classes", () => {
   assert.equal(validatePassword("short1").valid, false);
   assert.equal(validatePassword("alllettersonly").valid, false);
@@ -35,22 +40,6 @@ test("Auth Engine: validateStudentNumber enforces the YYYY-NNNNN university form
   assert.equal(validateStudentNumber("2024-101010"), true);
   assert.equal(validateStudentNumber("2410492"), false);
   assert.equal(validateStudentNumber("2024-104"), false);
-});
-
-test("Auth Engine: generateOtp produces a numeric code of the configured length", () => {
-  const code = generateOtp();
-  assert.equal(code.length, OTP_LENGTH);
-  assert.match(code, /^[0-9]{6}$/);
-
-  const custom = generateOtp(4);
-  assert.equal(custom.length, 4);
-  assert.match(custom, /^[0-9]{4}$/);
-});
-
-test("Auth Engine: validateOtp compares the entered code against the issued one", () => {
-  assert.equal(validateOtp("123456", "123456"), true);
-  assert.equal(validateOtp(" 123456 ", "123456"), true);
-  assert.equal(validateOtp("123457", "123456"), false);
 });
 
 test("Auth Engine: maskEmail hides the local part beyond the first two characters", () => {

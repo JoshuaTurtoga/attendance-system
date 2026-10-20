@@ -1,15 +1,20 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./env";
+
+let browserClient: SupabaseClient | null = null;
 
 /**
- * Creates a browser-side Supabase client.
- * Uses NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY if set,
- * otherwise provides safe fallbacks so the app runs without crashing before credentials are provided.
+ * Returns the shared browser-side Supabase client.
+ * Returns null when the project has not been configured with credentials,
+ * letting callers render a setup notice rather than query a placeholder.
  */
-export function createClient() {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
-
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+export function createClient(): SupabaseClient | null {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+  if (!browserClient) {
+    browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return browserClient;
 }

@@ -18,7 +18,7 @@ type Step = "email" | "otp" | "password";
 
 export function AuthOtpResetScreen() {
   const {
-    requestPasswordResetOtp,
+    requestPasswordReset,
     verifyPasswordResetOtp,
     resetPassword,
     goToScreen,
@@ -27,28 +27,33 @@ export function AuthOtpResetScreen() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [issuedOtp, setIssuedOtp] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleRequestOtp = (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = requestPasswordResetOtp(email);
+    setIsSubmitting(true);
+    const result = await requestPasswordReset(email);
+    setIsSubmitting(false);
     if (!result.ok) {
       setError(result.error ?? "Unable to send a verification code.");
       return;
     }
     setError(null);
-    setIssuedOtp(result.otp ?? null);
-    setNotice(`A ${OTP_LENGTH}-digit verification code was sent to ${maskEmail(email)}.`);
+    setNotice(
+      `A ${OTP_LENGTH}-digit verification code was sent to ${maskEmail(email)}.`
+    );
     setStep("otp");
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = verifyPasswordResetOtp(email, otp);
+    setIsSubmitting(true);
+    const result = await verifyPasswordResetOtp(email, otp);
+    setIsSubmitting(false);
     if (!result.ok) {
       setError(result.error ?? "Unable to verify the code.");
       return;
@@ -58,13 +63,15 @@ export function AuthOtpResetScreen() {
     setStep("password");
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
-    const result = resetPassword(email, otp, password);
+    setIsSubmitting(true);
+    const result = await resetPassword(email, otp, password);
+    setIsSubmitting(false);
     if (!result.ok) {
       setError(result.error ?? "Unable to reset your password.");
     }
@@ -131,7 +138,7 @@ export function AuthOtpResetScreen() {
             label="University Email"
             type="email"
             autoComplete="email"
-            placeholder="you@university.edu"
+            placeholder="you@universityofbohol.edu.ph"
             icon={<Mail className="w-4 h-4" />}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -139,9 +146,10 @@ export function AuthOtpResetScreen() {
           />
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Send Verification Code
+            {isSubmitting ? "Sending..." : "Send Verification Code"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -149,16 +157,6 @@ export function AuthOtpResetScreen() {
 
       {step === "otp" && (
         <form onSubmit={handleVerifyOtp} className="space-y-4">
-          {issuedOtp && (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
-              <span className="font-medium">
-                Demonstration code (no email is sent):
-              </span>
-              <span className="font-mono font-black tracking-widest text-sm whitespace-nowrap">
-                {issuedOtp}
-              </span>
-            </div>
-          )}
           <AuthField
             label="Verification Code"
             inputMode="numeric"
@@ -171,9 +169,10 @@ export function AuthOtpResetScreen() {
           />
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Verify Code
+            {isSubmitting ? "Verifying..." : "Verify Code"}
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -181,7 +180,6 @@ export function AuthOtpResetScreen() {
             onClick={() => {
               setStep("email");
               setOtp("");
-              setIssuedOtp(null);
               setNotice(null);
               setError(null);
             }}
@@ -217,9 +215,10 @@ export function AuthOtpResetScreen() {
           />
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Set New Password
+            {isSubmitting ? "Updating..." : "Set New Password"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

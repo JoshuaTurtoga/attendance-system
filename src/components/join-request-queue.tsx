@@ -1,12 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAuth } from "@/features/auth/auth-context";
 import type { JoinRequest, RosterStudent } from "@/types";
 import {
   matchJoinRequestToRoster,
+} from "@/lib/roster/smart-matching-engine";
+import {
   approveJoinRequest,
   declineJoinRequest,
-} from "@/lib/roster/smart-matching-engine";
+  listJoinRequests,
+  listRoster,
+} from "@/lib/data/roster";
 import {
   Sparkles,
   Check,
@@ -19,6 +24,7 @@ import {
 } from "lucide-react";
 
 interface JoinRequestQueueProps {
+  classId: string;
   requests: JoinRequest[];
   roster: RosterStudent[];
   onRosterUpdated: (newRoster: RosterStudent[]) => void;
@@ -26,43 +32,64 @@ interface JoinRequestQueueProps {
 }
 
 export function JoinRequestQueue({
+  classId,
   requests,
   roster,
   onRosterUpdated,
   onRequestStatusUpdated,
 }: JoinRequestQueueProps) {
-  const [activeRequests, setActiveRequests] = useState<JoinRequest[]>(requests);
+  const { supabase } = useAuth();
   const [selectedPhotoModal, setSelectedPhotoModal] = useState<string | null>(null);
   const [declineModalReq, setDeclineModalReq] = useState<JoinRequest | null>(null);
   const [declineReason, setDeclineReason] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const pendingRequests = activeRequests.filter((r) => r.status === "pending");
+  const pendingRequests = requests.filter((r) => r.status === "pending");
 
-  const handleApprove = (req: JoinRequest) => {
-    const { updatedRequest, updatedRoster } = approveJoinRequest(req, roster);
-    const newRequests = activeRequests.map((r) =>
-      r.id === req.id ? updatedRequest : r
-    );
-    setActiveRequests(newRequests);
-    onRequestStatusUpdated(newRequests);
-    onRosterUpdated(updatedRoster);
+  const refreshData = async () => {
+    if (!supabase) return;
+    try {
+      const [newRoster, newRequests] = await Promise.all([
+        listRoster(supabase, classId),
+        listJoinRequests(supabase, classId),
+      ]);
+      onRosterUpdated(newRoster);
+      onRequestStatusUpdated(newRequests);
+    } catch (err) {
+      console.error("Failed to refresh join queue data", err);
+    }
   };
 
-  const handleDeclineConfirm = () => {
-    if (!declineModalReq) return;
-    const { updatedRequest, updatedRoster } = declineJoinRequest(
-      declineModalReq,
-      roster,
-      declineReason.trim() || "Applicant declined by instructor."
-    );
-    const newRequests = activeRequests.map((r) =>
-      r.id === declineModalReq.id ? updatedRequest : r
-    );
-    setActiveRequests(newRequests);
-    onRequestStatusUpdated(newRequests);
-    onRosterUpdated(updatedRoster);
-    setDeclineModalReq(null);
-    setDeclineReason("");
+  const handleApprove = async (req: JoinRequest) => {
+    if (!supabase || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await approveJoinRequest(supabase, req);
+      await refreshData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to approve request");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeclineConfirm = async () => {
+    if (!declineModalReq || !supabase || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await declineJoinRequest(
+        supabase,
+        declineModalReq.id,
+        declineReason.trim() || "Applicant declined by instructor."
+      );
+      await refreshData();
+      setDeclineModalReq(null);
+      setDeclineReason("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to decline request");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (pendingRequests.length === 0) {

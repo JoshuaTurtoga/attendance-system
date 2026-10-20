@@ -1,63 +1,30 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Role, UserProfile } from "@/types";
 import { getAvailableViews, switchActiveView } from "@/lib/auth/permissions";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
-  DEMO_PASSWORD,
-  generateOtp,
+  fetchProfile,
+  setActiveView as persistActiveView,
+} from "@/lib/data/profiles";
+import {
+  isUniversityEmail,
   normalizeEmail,
+  universityEmailErrorMessage,
   validateEmail,
-  validateOtp,
   validatePassword,
   type AuthScreen,
 } from "@/lib/auth/auth-engine";
-
-// Default demo personas to immediately test all roles and POV switching
-export const DEMO_USERS: Record<string, UserProfile> = {
-  dual_instructor_admin: {
-    id: "usr_dual_01",
-    email: "arthur.pendelton@university.edu",
-    firstName: "Arthur",
-    middleName: "M.",
-    lastName: "Pendelton",
-    roles: ["instructor", "admin"],
-    activeView: "instructor",
-    department: "Computer Science & Engineering",
-    avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date().toISOString(),
-  },
-  instructor_only: {
-    id: "usr_inst_02",
-    email: "elena.vance@university.edu",
-    firstName: "Elena",
-    middleName: "R.",
-    lastName: "Vance",
-    roles: ["instructor"],
-    activeView: "instructor",
-    department: "College of Science",
-    avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date().toISOString(),
-  },
-  student_only: {
-    id: "usr_stud_03",
-    email: "marcus.chen@student.university.edu",
-    firstName: "Marcus",
-    middleName: "L.",
-    lastName: "Chen",
-    studentNumber: "2024-10492",
-    roles: ["student"],
-    activeView: "student",
-    department: "College of Computer Studies",
-    avatarUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date().toISOString(),
-  },
-};
-
-interface RegisteredAccount {
-  user: UserProfile;
-  password: string;
-}
 
 export interface StudentRegistrationInput {
   firstName: string;
@@ -69,262 +36,309 @@ export interface StudentRegistrationInput {
   department: string;
 }
 
-interface AuthResult {
+export interface AuthResult {
   ok: boolean;
   error?: string;
 }
 
 interface AuthContextType {
-  currentUser: UserProfile;
+  supabase: SupabaseClient | null;
+  isConfigured: boolean;
+  isLoading: boolean;
+  currentUser: UserProfile | null;
   activeView: Role;
   availableViews: Role[];
-  isDualRole: boolean;
-  switchView: (view: Role) => void;
-  selectPersona: (personaKey: keyof typeof DEMO_USERS) => void;
-  activePersonaKey: string;
-
-  // Public landing + authentication flow
   isAuthenticated: boolean;
+
   authScreen: AuthScreen;
-  demoPassword: string;
+  authNotice: string | null;
   goToScreen: (screen: AuthScreen) => void;
-  signIn: (email: string, password: string) => AuthResult;
-  signOut: () => void;
-  registerStudent: (input: StudentRegistrationInput) => AuthResult;
-  requestPasswordResetOtp: (email: string) => AuthResult & { otp?: string };
-  verifyPasswordResetOtp: (email: string, code: string) => AuthResult;
+  clearNotice: () => void;
+
+  switchView: (view: Role) => void;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signOut: () => Promise<void>;
+  registerStudent: (input: StudentRegistrationInput) => Promise<AuthResult>;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  verifyPasswordResetOtp: (email: string, code: string) => Promise<AuthResult>;
   resetPassword: (
     email: string,
     code: string,
     newPassword: string
-  ) => AuthResult;
+  ) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Translates raw Supabase auth errors into student/faculty friendly copy. */
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (m.includes("email not confirmed")) {
+    return "Please confirm your university email before signing in.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "An account with this email already exists.";
+  }
+  return message;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [activePersonaKey, setActivePersonaKey] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("active_persona_key");
-      if (saved && DEMO_USERS[saved]) return saved;
-    }
-    return "dual_instructor_admin";
-  });
+  const supabase = useMemo(() => createClient(), []);
+  const configured = isSupabaseConfigured();
 
-  // Accounts created through Student Registration, plus password overrides
-  // applied to the pre-seeded demo personas via the OTP reset flow.
-  const [registeredAccounts, setRegisteredAccounts] = useState<RegisteredAccount[]>([]);
-  const [passwordOverrides, setPasswordOverrides] = useState<Record<string, string>>({});
-  const [registeredUser, setRegisteredUser] = useState<UserProfile | null>(null);
-
-  const currentUser =
-    registeredUser ?? DEMO_USERS[activePersonaKey] ?? DEMO_USERS.dual_instructor_admin;
-  const [activeView, setActiveView] = useState<Role>(currentUser.activeView);
-
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(configured && supabase));
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [activeView, setActiveView] = useState<Role>("student");
   const [authScreen, setAuthScreen] = useState<AuthScreen>("landing");
-  const [otpStore, setOtpStore] = useState<Record<string, string>>({});
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
-  const availableViews = getAvailableViews(currentUser.roles);
-  const isDualRole = availableViews.length > 1;
+  const hydrateProfile = useCallback(
+    async (client: SupabaseClient, userId: string): Promise<UserProfile | null> => {
+      // The profile row is created by a DB trigger on sign-up; retry briefly
+      // so a brand-new account is not shown as missing.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const profile = await fetchProfile(client, userId);
+        if (profile) return profile;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      return null;
+    },
+    []
+  );
 
-  const findAccount = (
-    email: string
-  ): { user: UserProfile; password: string; personaKey?: string } | null => {
-    const normalized = normalizeEmail(email);
+  useEffect(() => {
+    if (!supabase) return;
 
-    const registered = registeredAccounts.find(
-      (a) => normalizeEmail(a.user.email) === normalized
+    let cancelled = false;
+
+    const applyProfile = (profile: UserProfile | null) => {
+      if (cancelled) return;
+      setCurrentUser(profile);
+      if (profile) {
+        setActiveView(profile.activeView);
+      }
+    };
+
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user ?? null;
+      if (user) {
+        applyProfile(await hydrateProfile(supabase, user.id));
+      }
+      if (!cancelled) setIsLoading(false);
+    })();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_OUT" || !session?.user) {
+          applyProfile(null);
+          return;
+        }
+        void hydrateProfile(supabase, session.user.id).then(applyProfile);
+      }
     );
-    if (registered) {
-      return { user: registered.user, password: registered.password };
-    }
 
-    const demoEntry = Object.entries(DEMO_USERS).find(
-      ([, u]) => normalizeEmail(u.email) === normalized
-    );
-    if (demoEntry) {
-      const [key, user] = demoEntry;
-      return {
-        user,
-        password: passwordOverrides[normalized] ?? DEMO_PASSWORD,
-        personaKey: key,
-      };
-    }
+    return () => {
+      cancelled = true;
+      subscription.subscription.unsubscribe();
+    };
+  }, [supabase, hydrateProfile]);
 
-    return null;
-  };
+  const goToScreen = (screen: AuthScreen) => setAuthScreen(screen);
+  const clearNotice = () => setAuthNotice(null);
 
   const handleSwitchView = (targetView: Role) => {
+    if (!currentUser) return;
     try {
       const validated = switchActiveView(currentUser.roles, targetView);
       setActiveView(validated);
+      if (supabase) {
+        void persistActiveView(supabase, currentUser.id, validated);
+      }
     } catch (err) {
       console.error("Failed to switch view:", err);
     }
   };
 
-  const handleSelectPersona = (key: keyof typeof DEMO_USERS) => {
-    const user = DEMO_USERS[key];
-    if (!user) return;
-    setRegisteredUser(null);
-    setActivePersonaKey(key);
-    setActiveView(user.activeView);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("active_persona_key", key);
+  const signIn = async (email: string, password: string): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
     }
-  };
-
-  const goToScreen = (screen: AuthScreen) => setAuthScreen(screen);
-
-  const signIn = (email: string, password: string): AuthResult => {
     if (!validateEmail(email)) {
       return { ok: false, error: "Please enter a valid email address." };
     }
 
-    const account = findAccount(email);
-    if (!account) {
-      return { ok: false, error: "No account found for that email address." };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizeEmail(email),
+      password,
+    });
+    if (error) {
+      return { ok: false, error: friendlyAuthError(error.message) };
     }
-    if (account.user.isSuspended) {
+
+    const userId = data.user?.id;
+    if (!userId) {
+      return { ok: false, error: "Unable to sign in. Please try again." };
+    }
+
+    const profile = await hydrateProfile(supabase, userId);
+    if (profile?.isSuspended) {
+      await supabase.auth.signOut();
       return {
         ok: false,
         error: "This account has been suspended. Contact the registrar.",
       };
     }
-    if (account.password !== password) {
-      return { ok: false, error: "Incorrect password. Please try again." };
-    }
 
-    if (account.personaKey) {
-      setRegisteredUser(null);
-      setActivePersonaKey(account.personaKey);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("active_persona_key", account.personaKey);
-      }
-    } else {
-      setRegisteredUser(account.user);
-    }
-    setActiveView(account.user.activeView);
-    setIsAuthenticated(true);
+    setCurrentUser(profile);
+    setActiveView(profile?.activeView ?? "student");
     return { ok: true };
   };
 
-  const signOut = () => {
-    setIsAuthenticated(false);
-    setRegisteredUser(null);
+  const signOut = async (): Promise<void> => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setCurrentUser(null);
     setAuthScreen("landing");
   };
 
-  const registerStudent = (input: StudentRegistrationInput): AuthResult => {
-    const normalized = normalizeEmail(input.email);
+  const registerStudent = async (
+    input: StudentRegistrationInput
+  ): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
+    }
     if (!validateEmail(input.email)) {
       return { ok: false, error: "Please enter a valid email address." };
     }
-    if (findAccount(normalized)) {
-      return { ok: false, error: "An account with this email already exists." };
+    if (!isUniversityEmail(input.email)) {
+      return { ok: false, error: universityEmailErrorMessage() };
     }
     const passwordCheck = validatePassword(input.password);
     if (!passwordCheck.valid) {
       return { ok: false, error: passwordCheck.message };
     }
 
-    const newUser: UserProfile = {
-      id: `usr_stud_${Date.now()}`,
-      email: normalized,
-      firstName: input.firstName.trim(),
-      middleName: input.middleName?.trim() || undefined,
-      lastName: input.lastName.trim(),
-      studentNumber: input.studentNumber.trim(),
-      roles: ["student"],
-      activeView: "student",
-      department: input.department,
-      createdAt: new Date().toISOString(),
-    };
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizeEmail(input.email),
+      password: input.password,
+      options: {
+        data: {
+          role: "student",
+          first_name: input.firstName.trim(),
+          middle_name: input.middleName?.trim() ?? "",
+          last_name: input.lastName.trim(),
+          student_number: input.studentNumber.trim(),
+          department: input.department,
+        },
+      },
+    });
 
-    setRegisteredAccounts((prev) => [...prev, { user: newUser, password: input.password }]);
-    setRegisteredUser(newUser);
+    if (error) {
+      return { ok: false, error: friendlyAuthError(error.message) };
+    }
+
+    if (!data.session) {
+      setAuthNotice(
+        "Account created. Confirm your university email, then sign in to continue."
+      );
+      setAuthScreen("login");
+      return { ok: true };
+    }
+
+    const profile = await hydrateProfile(supabase, data.session.user.id);
+    setCurrentUser(profile);
     setActiveView("student");
-    setIsAuthenticated(true);
     return { ok: true };
   };
 
-  const requestPasswordResetOtp = (
-    email: string
-  ): AuthResult & { otp?: string } => {
+  const requestPasswordReset = async (email: string): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
+    }
     if (!validateEmail(email)) {
       return { ok: false, error: "Please enter a valid email address." };
     }
-    const normalized = normalizeEmail(email);
-    if (!findAccount(normalized)) {
-      return { ok: false, error: "No account found for that email address." };
-    }
-    const otp = generateOtp();
-    setOtpStore((prev) => ({ ...prev, [normalized]: otp }));
-    return { ok: true, otp };
-  };
-
-  const verifyPasswordResetOtp = (email: string, code: string): AuthResult => {
-    const normalized = normalizeEmail(email);
-    const issued = otpStore[normalized];
-    if (!issued) {
-      return { ok: false, error: "Please request a new verification code." };
-    }
-    if (!validateOtp(code, issued)) {
-      return { ok: false, error: "Incorrect verification code. Please try again." };
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      normalizeEmail(email)
+    );
+    if (error) {
+      return { ok: false, error: friendlyAuthError(error.message) };
     }
     return { ok: true };
   };
 
-  const resetPassword = (
+  const verifyPasswordResetOtp = async (
+    email: string,
+    code: string
+  ): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
+    }
+    const { error } = await supabase.auth.verifyOtp({
+      email: normalizeEmail(email),
+      token: code.trim(),
+      type: "recovery",
+    });
+    if (error) {
+      return { ok: false, error: "Incorrect or expired verification code." };
+    }
+    return { ok: true };
+  };
+
+  const resetPassword = async (
     email: string,
     code: string,
     newPassword: string
-  ): AuthResult => {
-    const verification = verifyPasswordResetOtp(email, code);
-    if (!verification.ok) return verification;
-
+  ): Promise<AuthResult> => {
+    if (!supabase) {
+      return { ok: false, error: "Supabase is not configured for this deployment." };
+    }
     const passwordCheck = validatePassword(newPassword);
     if (!passwordCheck.valid) {
       return { ok: false, error: passwordCheck.message };
     }
 
-    const normalized = normalizeEmail(email);
-    setPasswordOverrides((prev) => ({ ...prev, [normalized]: newPassword }));
-    setRegisteredAccounts((prev) =>
-      prev.map((a) =>
-        normalizeEmail(a.user.email) === normalized
-          ? { ...a, password: newPassword }
-          : a
-      )
-    );
-    setOtpStore((prev) => {
-      const next = { ...prev };
-      delete next[normalized];
-      return next;
-    });
+    const verification = await verifyPasswordResetOtp(email, code);
+    if (!verification.ok) return verification;
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      return { ok: false, error: friendlyAuthError(error.message) };
+    }
+
+    await supabase.auth.signOut();
     setAuthScreen("login");
+    setAuthNotice("Password updated. Sign in with your new password.");
     return { ok: true };
   };
+
+  const availableViews = currentUser ? getAvailableViews(currentUser.roles) : [];
+  const isAuthenticated = currentUser !== null;
 
   return (
     <AuthContext.Provider
       value={{
+        supabase,
+        isConfigured: configured,
+        isLoading,
         currentUser,
         activeView,
         availableViews,
-        isDualRole,
-        switchView: handleSwitchView,
-        selectPersona: handleSelectPersona,
-        activePersonaKey,
         isAuthenticated,
         authScreen,
-        demoPassword: DEMO_PASSWORD,
+        authNotice,
         goToScreen,
+        clearNotice,
+        switchView: handleSwitchView,
         signIn,
         signOut,
         registerStudent,
-        requestPasswordResetOtp,
+        requestPasswordReset,
         verifyPasswordResetOtp,
         resetPassword,
       }}

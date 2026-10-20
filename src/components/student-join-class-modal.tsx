@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import type { AcademicClass, JoinRequest } from "@/types";
+import type { AcademicClass } from "@/types";
+import { useAuth } from "@/features/auth/auth-context";
+import { findClassByJoinCode } from "@/lib/data/classes";
+import { submitJoinRequest } from "@/lib/data/roster";
+import { EmptyState } from "./empty-state";
 import { KeyRound, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 
 interface StudentJoinClassModalProps {
@@ -12,7 +16,7 @@ interface StudentJoinClassModalProps {
   studentName: string;
   program: string;
   academicLevel: string;
-  onJoinSubmitted: (request: JoinRequest, courseName: string, instructorName: string) => void;
+  onJoinSubmitted: (courseName: string) => void;
 }
 
 export function StudentJoinClassModal({
@@ -25,17 +29,16 @@ export function StudentJoinClassModal({
   academicLevel,
   onJoinSubmitted,
 }: StudentJoinClassModalProps) {
+  const { supabase, currentUser } = useAuth();
   const [courseCode, setCourseCode] = useState("");
   const [classCode, setClassCode] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [confirmationMsg, setConfirmationMsg] = useState<{
-    courseName: string;
-    instructorName: string;
-  } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmationMsg, setConfirmationMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -47,38 +50,49 @@ export function StudentJoinClassModal({
       return;
     }
 
-    // Match against available classes
-    const matched = availableClasses.find(
-      (c) =>
-        c.courseCode.toUpperCase() === cleanCourse &&
-        c.joinCode.toUpperCase() === cleanClassCode
-    );
-
-    if (!matched) {
-      setErrorMsg(
-        `No class found matching Course Code "${cleanCourse}" and Join Code "${cleanClassCode}". Please check with your instructor.`
-      );
+    if (!supabase || !currentUser) {
+      setErrorMsg("You must be signed in to submit a join application.");
       return;
     }
 
-    const instructorName = "Dr. Joshua Aquino"; // Default faculty profile
-    const newRequest: JoinRequest = {
-      id: `req_${Date.now()}`,
-      classId: matched.id,
-      studentNumber,
-      studentName,
-      program,
-      academicLevel,
-      photoIdUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-      status: "pending",
-      submittedAt: new Date().toLocaleString(),
-    };
+    setIsSubmitting(true);
+    try {
+      // Prefer the classes already visible to the hub, then fall back to the
+      // authoritative lookup by join code.
+      const fromHub = availableClasses.find(
+        (c) =>
+          c.courseCode.toUpperCase() === cleanCourse &&
+          c.joinCode.toUpperCase() === cleanClassCode
+      );
+      const matched = fromHub ?? (await findClassByJoinCode(supabase, cleanClassCode));
 
-    onJoinSubmitted(newRequest, matched.courseTitle, instructorName);
-    setConfirmationMsg({
-      courseName: matched.courseTitle,
-      instructorName,
-    });
+      if (!matched || matched.courseCode.toUpperCase() !== cleanCourse) {
+        setErrorMsg(
+          `No class found matching Course Code "${cleanCourse}" and Join Code "${cleanClassCode}". Please check the details with your instructor.`
+        );
+        return;
+      }
+
+      await submitJoinRequest(supabase, {
+        classId: matched.id,
+        requesterId: currentUser.id,
+        studentNumber: studentNumber.trim(),
+        studentName: studentName.trim(),
+        program: program.trim(),
+        academicLevel: academicLevel.trim(),
+      });
+
+      setConfirmationMsg(matched.courseTitle);
+      onJoinSubmitted(matched.courseTitle);
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Unable to submit your join application. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFinish = () => {
@@ -94,19 +108,20 @@ export function StudentJoinClassModal({
         {confirmationMsg ? (
           /* Confirmation Prompt (DOCUMENTATION.md § 4.C.3) */
           <div className="text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200 shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-black text-zinc-950 tracking-tight">
-              Application Dispatched
+              Application Submitted
             </h3>
             <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed text-left">
-              Successfully sent a request to join the class{" "}
-              <strong className="text-[#7C1D26]">{confirmationMsg.courseName}</strong> to
-              Instructor <strong className="text-zinc-950">{confirmationMsg.instructorName}</strong>.
+              Your request to join{" "}
+              <strong className="text-[#7C1D26]">{confirmationMsg}</strong> is now{" "}
+              <strong className="text-amber-700">pending</strong>.
             </div>
             <p className="text-[11px] text-zinc-400">
-              The instructor will verify your University ID and approve your enrollment in Tab 1.
+              Your instructor must verify your University ID and approve your enrolment. Track
+              the status any time under the Requests tab.
             </p>
             <button
               onClick={handleFinish}
@@ -135,6 +150,14 @@ export function StudentJoinClassModal({
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {availableClasses.length === 0 && (
+              <EmptyState
+                icon={<KeyRound className="w-6 h-6" />}
+                title="No classes to browse"
+                description="Enter the Course Code and the 6-character Join Code provided by your instructor to request enrolment."
+              />
+            )}
 
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
@@ -184,9 +207,10 @@ export function StudentJoinClassModal({
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span>Submit Join Application</span>
+                  <span>{isSubmitting ? "Submitting…" : "Submit Join Application"}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>

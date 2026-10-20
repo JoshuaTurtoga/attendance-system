@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import type { UserProfile } from "@/types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { AcademicClass, UserProfile } from "@/types";
+import { useAuth } from "@/features/auth/auth-context";
+import { listProfiles, setSuspension } from "@/lib/data/profiles";
+import { listVisibleClasses } from "@/lib/data/classes";
+import { listRosterCounts } from "@/lib/data/roster";
+import { fetchSystemPolicy, saveSystemPolicy } from "@/lib/data/admin";
+import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 import {
   filterUsers,
   toggleUserSuspension,
@@ -9,7 +15,7 @@ import {
 } from "@/lib/admin/admin-portal-engine";
 import { AdminProvisionModal } from "./admin-provision-modal";
 import { AdminTermConfigModal } from "./admin-term-config-modal";
-import { DEMO_USERS } from "@/features/auth/auth-context";
+import { EmptyState } from "./empty-state";
 import {
   ShieldAlert,
   Users,
@@ -43,131 +49,48 @@ interface AdminClassOverview {
   joinCode: string;
 }
 
-const INITIAL_ADMIN_USERS: UserProfile[] = [
-  DEMO_USERS.dual_instructor_admin,
-  DEMO_USERS.instructor_only,
-  DEMO_USERS.student_only,
-  {
-    id: "usr_inst_04",
-    email: "robert.reyes@university.edu",
-    firstName: "Robert",
-    middleName: "D.",
-    lastName: "Reyes",
-    roles: ["instructor"],
-    activeView: "instructor",
-    department: "College of Engineering",
-    avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-    isSuspended: false,
-  },
-  {
-    id: "usr_stud_05",
-    email: "maria.santos@student.university.edu",
-    firstName: "Maria",
-    middleName: "C.",
-    lastName: "Santos",
-    studentNumber: "2024-10101",
-    roles: ["student"],
-    activeView: "student",
-    department: "Computer Science & Engineering",
-    avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-    isSuspended: false,
-  },
-  {
-    id: "usr_stud_06",
-    email: "joshua.lim@student.university.edu",
-    firstName: "Joshua",
-    middleName: "A.",
-    lastName: "Lim",
-    studentNumber: "2024-10202",
-    roles: ["student"],
-    activeView: "student",
-    department: "Information Technology",
-    createdAt: new Date(Date.now() - 86400000 * 22).toISOString(),
-    isSuspended: false,
-  },
-  {
-    id: "usr_adm_07",
-    email: "sarah.jenkins@university.edu",
-    firstName: "Sarah",
-    lastName: "Jenkins",
-    roles: ["admin"],
-    activeView: "admin",
-    department: "University Registrar",
-    avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80",
-    createdAt: new Date(Date.now() - 86400000 * 45).toISOString(),
-    isSuspended: false,
-  },
-];
+const EMPTY_POLICY: SystemPolicyConfig = {
+  activeTerm: "No term configured",
+  miniTerm: undefined,
+  lateToAbsentRatio: 0,
+  maxAbsenceThreshold: 0,
+  departments: [],
+};
 
-const INITIAL_ADMIN_CLASSES: AdminClassOverview[] = [
-  {
-    id: "cls_01",
-    courseCode: "STAS 101",
-    courseTitle: "Science, Technology and Society",
-    section: "E106-R",
-    instructorName: "Dr. Arthur Pendelton",
-    instructorEmail: "arthur.pendelton@university.edu",
-    department: "Computer Science & Engineering",
-    enrolledCount: 35,
-    schedule: "Mon / Wed (09:00 - 10:30)",
-    room: "Room 402, Science Bldg",
-    joinCode: "STA823",
-  },
-  {
-    id: "cls_02",
-    courseCode: "CS 312",
-    courseTitle: "Algorithms & Complex Data Structures",
-    section: "CS3A",
-    instructorName: "Dr. Arthur Pendelton",
-    instructorEmail: "arthur.pendelton@university.edu",
-    department: "Computer Science & Engineering",
-    enrolledCount: 28,
-    schedule: "Mon / Thu (13:00 - 15:00)",
-    room: "Lab 3, IT Center",
-    joinCode: "ALG491",
-  },
-  {
-    id: "cls_03",
-    courseCode: "IT 221",
-    courseTitle: "Database Management Systems",
-    section: "IT2B",
-    instructorName: "Dr. Arthur Pendelton",
-    instructorEmail: "arthur.pendelton@university.edu",
-    department: "Information Technology",
-    enrolledCount: 32,
-    schedule: "Tue / Fri (10:30 - 12:00)",
-    room: "Room 205, Main Hall",
-    joinCode: "DBM902",
-  },
-  {
-    id: "cls_04",
-    courseCode: "ENG 201",
-    courseTitle: "Advanced Technical Writing",
-    section: "EN2A",
-    instructorName: "Dr. Elena Vance",
-    instructorEmail: "elena.vance@university.edu",
-    department: "College of Science",
-    enrolledCount: 30,
-    schedule: "Wed / Fri (14:00 - 15:30)",
-    room: "Room 102, Arts Bldg",
-    joinCode: "ENG771",
-  },
-  {
-    id: "cls_05",
-    courseCode: "MATH 104",
-    courseTitle: "Discrete Mathematics",
-    section: "CS1A",
-    instructorName: "Prof. Robert Reyes",
-    instructorEmail: "robert.reyes@university.edu",
-    department: "College of Engineering",
-    enrolledCount: 40,
-    schedule: "Tue / Thu (08:30 - 10:00)",
-    room: "Room 301, Engineering Hall",
-    joinCode: "MTH104",
-  },
-];
+/** Projects a stored class + its instructor + headcount into the admin table row. */
+function toClassOverview(
+  cls: AcademicClass,
+  usersById: Map<string, UserProfile>,
+  rosterCounts: Record<string, number>
+): AdminClassOverview {
+  const instructor = usersById.get(cls.instructorId);
+  const primary = cls.schedule[0];
+  const schedule = cls.schedule.length
+    ? `${cls.schedule.map((b) => b.dayOfWeek.slice(0, 3)).join(" / ")}${
+        primary
+          ? ` (${formatTime12Hour(primary.startTime)} - ${formatTime12Hour(
+              primary.endTime
+            )})`
+          : ""
+      }`
+    : "Schedule not set";
+
+  return {
+    id: cls.id,
+    courseCode: cls.courseCode,
+    courseTitle: cls.courseTitle,
+    section: cls.section,
+    instructorName: instructor
+      ? `${instructor.firstName} ${instructor.lastName}`
+      : "Unassigned",
+    instructorEmail: instructor?.email ?? "—",
+    department: instructor?.department ?? cls.term,
+    enrolledCount: rosterCounts[cls.id] ?? 0,
+    schedule,
+    room: primary?.room ?? "TBA",
+    joinCode: cls.joinCode,
+  };
+}
 
 export type AdminTab = "overview" | "users" | "classes" | "policies";
 
@@ -176,8 +99,13 @@ export interface AdminHubProps {
 }
 
 export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
-  const [users, setUsers] = useState<UserProfile[]>(INITIAL_ADMIN_USERS);
-  const [classes] = useState<AdminClassOverview[]>(INITIAL_ADMIN_CLASSES);
+  const { supabase } = useAuth();
+
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [classes, setClasses] = useState<AcademicClass[]>([]);
+  const [rosterCounts, setRosterCounts] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filters for User Directory
   const [userSearchQuery, setUserSearchQuery] = useState("");
@@ -191,20 +119,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
   const [isTermConfigModalOpen, setIsTermConfigModalOpen] = useState(false);
 
   // System Policy Config state
-  const [systemConfig, setSystemConfig] = useState<SystemPolicyConfig>({
-    activeTerm: "1st Semester 2026-2027",
-    miniTerm: "Prelim - Midterm - Finals",
-    lateToAbsentRatio: 3,
-    maxAbsenceThreshold: 4,
-    departments: [
-      "Computer Science & Engineering",
-      "College of Science",
-      "Information Technology",
-      "College of Engineering",
-      "Mathematics & Statistics",
-      "Humanities & Social Sciences",
-    ],
-  });
+  const [systemConfig, setSystemConfig] = useState<SystemPolicyConfig>(EMPTY_POLICY);
 
   // Action status message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -214,31 +129,90 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleToggleSuspension = (user: UserProfile) => {
+  const loadAdminData = useCallback(async () => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [profiles, classList, counts, policy] = await Promise.all([
+        listProfiles(supabase),
+        listVisibleClasses(supabase),
+        listRosterCounts(supabase),
+        fetchSystemPolicy(supabase),
+      ]);
+      setUsers(profiles);
+      setClasses(classList);
+      setRosterCounts(counts);
+      if (policy) setSystemConfig(policy);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : "Unable to load institutional data."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadAdminData();
+    });
+  }, [loadAdminData]);
+
+  const handleToggleSuspension = async (user: UserProfile) => {
     const updated = toggleUserSuspension(user);
     setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
-    showToast(
-      updated.isSuspended
-        ? `Account for ${user.firstName} ${user.lastName} has been suspended.`
-        : `Account for ${user.firstName} ${user.lastName} has been reactivated.`
-    );
+    try {
+      if (supabase) await setSuspension(supabase, user.id, Boolean(updated.isSuspended));
+      showToast(
+        updated.isSuspended
+          ? `Account for ${user.firstName} ${user.lastName} has been suspended.`
+          : `Account for ${user.firstName} ${user.lastName} has been reactivated.`
+      );
+    } catch (err) {
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+      showToast(err instanceof Error ? err.message : "Unable to update the account.");
+    }
   };
 
   const handleInstructorProvisioned = (newUser: UserProfile) => {
-    setUsers((prev) => [newUser, ...prev]);
-    showToast(`Faculty account for Dr. ${newUser.firstName} ${newUser.lastName} provisioned successfully.`);
+    setUsers((prev) => [
+      newUser,
+      ...prev.filter((u) => u.id !== newUser.id && u.email !== newUser.email),
+    ]);
+    showToast(
+      `Faculty account for ${newUser.firstName} ${newUser.lastName} provisioned successfully.`
+    );
   };
 
-  const handleSaveConfig = (newConfig: SystemPolicyConfig) => {
-    setSystemConfig(newConfig);
-    showToast("Institutional policies and term settings updated.");
+  const handleSaveConfig = async (newConfig: SystemPolicyConfig) => {
+    try {
+      if (supabase) await saveSystemPolicy(supabase, newConfig);
+      setSystemConfig(newConfig);
+      showToast("Institutional policies and term settings updated.");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Unable to save policies.");
+    }
   };
 
   // Filtered User list
   const filteredUsers = filterUsers(users, userSearchQuery, userRoleFilter);
 
+  const usersById = useMemo(
+    () => new Map(users.map((u) => [u.id, u])),
+    [users]
+  );
+
+  const classOverviews = useMemo(
+    () => classes.map((cls) => toClassOverview(cls, usersById, rosterCounts)),
+    [classes, usersById, rosterCounts]
+  );
+
   // Filtered Classes list
-  const filteredClasses = classes.filter((c) => {
+  const filteredClasses = classOverviews.filter((c) => {
     if (!classSearchQuery.trim()) return true;
     const q = classSearchQuery.toLowerCase();
     return (
@@ -290,6 +264,13 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
           </p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold">
+          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="min-w-0 break-words">{loadError}</span>
+        </div>
+      )}
 
       {/* TAB 1: SYSTEM OVERSIGHT */}
       {activeTab === "overview" && (
@@ -476,6 +457,18 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
           </div>
 
           {/* Users Table */}
+          {isLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3 text-zinc-400">
+              <div className="w-6 h-6 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
+              <p className="text-xs font-semibold">Loading institutional accounts…</p>
+            </div>
+          ) : users.length === 0 ? (
+            <EmptyState
+              icon={<Users className="w-6 h-6" />}
+              title="No user accounts yet"
+              description="Faculty and student accounts will appear here once instructors are provisioned and students register with a verified university email."
+            />
+          ) : (
           <div
             className="stagger-block bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden"
             style={{ "--i": 3 } as React.CSSProperties}
@@ -588,6 +581,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
               </table>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -626,6 +620,18 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
           </div>
 
           {/* Classes Table */}
+          {isLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3 text-zinc-400">
+              <div className="w-6 h-6 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
+              <p className="text-xs font-semibold">Loading class records…</p>
+            </div>
+          ) : classes.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="w-6 h-6" />}
+              title="No classes created yet"
+              description="Once instructors create their first course, enrollments and scheduled sessions will appear here for institutional oversight."
+            />
+          ) : (
           <div
             className="stagger-block bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden"
             style={{ "--i": 4 } as React.CSSProperties}
@@ -695,6 +701,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
               </table>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -800,14 +807,21 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
             </div>
 
             <div className="flex flex-wrap gap-2.5">
-              {systemConfig.departments.map((dept) => (
-                <span
-                  key={dept}
-                  className="px-3.5 py-1.5 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs font-semibold text-zinc-800 shadow-xs"
-                >
-                  {dept}
-                </span>
-              ))}
+              {systemConfig.departments.length === 0 ? (
+                <p className="text-xs text-zinc-400">
+                  No departments configured yet. Use “Configure Settings” to define the
+                  university’s academic departments.
+                </p>
+              ) : (
+                systemConfig.departments.map((dept) => (
+                  <span
+                    key={dept}
+                    className="px-3.5 py-1.5 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs font-semibold text-zinc-800 shadow-xs"
+                  >
+                    {dept}
+                  </span>
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -36,7 +36,9 @@ export function AdminProvisionModal({
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState(departments[0] || "Computer Science");
+  const [department, setDepartment] = useState(
+    departments[0] || "College of Business and Accountancy: CBA"
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [provisionedData, setProvisionedData] = useState<{
@@ -44,10 +46,11 @@ export function AdminProvisionModal({
     temporaryPassword: string;
   } | null>(null);
   const [copiedPass, setCopiedPass] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -59,17 +62,37 @@ export function AdminProvisionModal({
       department,
     };
 
-    const result = provisionInstructorAccount(params, existingUsers);
-    if (!result.success || !result.user || !result.temporaryPassword) {
-      setErrorMsg(result.error || "Failed to provision instructor account.");
+    // Validate locally (required fields + duplicate email) before provisioning.
+    const validation = provisionInstructorAccount(params, existingUsers);
+    if (!validation.success || !validation.temporaryPassword) {
+      setErrorMsg(validation.error || "Failed to provision instructor account.");
       return;
     }
 
-    onInstructorProvisioned(result.user);
-    setProvisionedData({
-      user: result.user,
-      temporaryPassword: result.temporaryPassword,
-    });
+    const temporaryPassword = validation.temporaryPassword;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/admin/provision-instructor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...params, password: temporaryPassword }),
+      });
+      const payload = (await response.json()) as {
+        user?: UserProfile;
+        error?: string;
+      };
+      if (!response.ok || !payload.user) {
+        setErrorMsg(payload.error || "Failed to provision instructor account.");
+        return;
+      }
+
+      onInstructorProvisioned(payload.user);
+      setProvisionedData({ user: payload.user, temporaryPassword });
+    } catch {
+      setErrorMsg("Network error. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyCredentials = () => {
@@ -288,9 +311,10 @@ export function AdminProvisionModal({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Provision Account
+                  {isSubmitting ? "Provisioning..." : "Provision Account"}
                 </button>
               </div>
             </form>

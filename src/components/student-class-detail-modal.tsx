@@ -12,6 +12,7 @@ import {
   computeStudentPersonalSummary,
   validateExcuseSubmission,
 } from "@/lib/student/student-portal-engine";
+import { EmptyState } from "./empty-state";
 import {
   X,
   Calendar,
@@ -300,6 +301,13 @@ export function StudentClassDetailModal({
               )}
 
               {/* Attendance Table */}
+              {classAttendance.length === 0 ? (
+                <EmptyState
+                  icon={<Calendar className="w-6 h-6" />}
+                  title="No attendance records"
+                  description="Once your instructor records roll-call for this class, your attendance history will appear here."
+                />
+              ) : (
               <div className="overflow-x-auto rounded-2xl border border-zinc-200">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-50 border-b border-zinc-200 font-bold text-zinc-600">
@@ -311,14 +319,7 @@ export function StudentClassDetailModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {classAttendance.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="p-6 text-center text-zinc-400">
-                          No attendance sessions recorded yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      classAttendance.map((rec) => {
+                    {classAttendance.map((rec) => {
                         const isAbsentOrLate = rec.status === "A" || rec.status === "L";
                         const hasPendingExcuse = studentClassExcuses.some(
                           (e) => e.date === rec.date && e.status === "pending"
@@ -376,16 +377,24 @@ export function StudentClassDetailModal({
                             </td>
                           </tr>
                         );
-                      })
-                    )}
+                      })}
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
           {activeTab === "grades" && (
             <div className="space-y-6">
+              {classGradeItems.length === 0 ? (
+                <EmptyState
+                  icon={<TrendingUp className="w-6 h-6" />}
+                  title="No grades recorded"
+                  description="Your instructor has not published any assessments for this class yet. Your scores will appear here once graded."
+                />
+              ) : (
+              <>
               {/* Category 1: Quizzes */}
               <div className="p-5 rounded-2xl bg-zinc-50/70 border border-zinc-200/80 space-y-3">
                 <div className="flex items-center justify-between">
@@ -499,6 +508,8 @@ export function StudentClassDetailModal({
                   )}
                 </div>
               </div>
+              </>
+              )}
             </div>
           )}
         </div>

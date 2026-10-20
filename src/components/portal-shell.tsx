@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { AcademicClass } from "@/types";
 import { useAuth } from "@/features/auth/auth-context";
 import { Sidebar, type SidebarNavItem } from "@/components/sidebar";
 import { StaggeredView } from "@/components/staggered-view";
 import {
   InstructorHub,
-  INITIAL_INSTRUCTOR_CLASSES,
   type InstructorViewTab,
 } from "@/components/instructor-hub";
 import { AdminHub, type AdminTab } from "@/components/admin-hub";
 import { StudentHub, type StudentTab } from "@/components/student-hub";
 import { ClassWorkspace, type WorkspaceTab } from "@/components/class-workspace";
+import {
+  createClass,
+  listVisibleClasses,
+  type CreateClassInput,
+} from "@/lib/data/classes";
 import {
   ArrowLeft,
   Users,
@@ -48,20 +52,45 @@ const WORKSPACE_TABS: { id: WorkspaceTab; label: string; icon: React.ReactNode }
  * surface in the sidebar while a class is open.
  */
 export function PortalShell() {
-  const { activeView } = useAuth();
+  const { activeView, currentUser, supabase } = useAuth();
 
   const [instructorTab, setInstructorTab] = useState<InstructorViewTab>("today");
   const [adminTab, setAdminTab] = useState<AdminTab>("overview");
   const [studentTab, setStudentTab] = useState<StudentTab>("today");
 
   // Instructor class list + open workspace state (shared with the sidebar)
-  const [classes, setClasses] = useState<AcademicClass[]>(INITIAL_INSTRUCTOR_CLASSES);
+  const [classes, setClasses] = useState<AcademicClass[]>([]);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
+  const [classesError, setClassesError] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<AcademicClass | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("roster");
   const [autoLaunchRollCall, setAutoLaunchRollCall] = useState(false);
   const [autoLaunchGradingToday, setAutoLaunchGradingToday] = useState(false);
 
   const isWorkspaceOpen = activeView === "instructor" && selectedClass !== null;
+
+  const loadClasses = useCallback(async () => {
+    if (!supabase || !currentUser) return;
+    setIsLoadingClasses(true);
+    setClassesError(null);
+    try {
+      setClasses(await listVisibleClasses(supabase));
+    } catch (err) {
+      setClassesError(
+        err instanceof Error ? err.message : "Unable to load your classes."
+      );
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  }, [supabase, currentUser]);
+
+  // Load the instructor's classes whenever the instructor POV becomes active.
+  useEffect(() => {
+    if (activeView !== "instructor") return;
+    queueMicrotask(() => {
+      void loadClasses();
+    });
+  }, [activeView, loadClasses]);
 
   // Close the class workspace when leaving the instructor POV. Adjusting state
   // during render (guarded by a previous-value check) avoids a cascading effect.
@@ -90,9 +119,13 @@ export function PortalShell() {
     setAutoLaunchGradingToday(false);
   };
 
-  const handleCreateClass = (newClass: AcademicClass) => {
-    setClasses((prev) => [newClass, ...prev]);
-    openClass(newClass);
+  const handleCreateClass = async (input: CreateClassInput) => {
+    if (!supabase || !currentUser) {
+      throw new Error("You must be signed in to create a class.");
+    }
+    const created = await createClass(supabase, currentUser.id, input);
+    setClasses((prev) => [created, ...prev]);
+    openClass(created);
   };
 
   const currentTabId = isWorkspaceOpen
@@ -175,6 +208,8 @@ export function PortalShell() {
                   <InstructorHub
                     activeTab={instructorTab}
                     classes={classes}
+                    isLoading={isLoadingClasses}
+                    errorMessage={classesError}
                     onCreateClass={handleCreateClass}
                     onOpenClass={openClass}
                   />

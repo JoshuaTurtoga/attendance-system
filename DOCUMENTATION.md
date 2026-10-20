@@ -58,9 +58,9 @@ The platform digitizes university class records, attendance tracking, and grade 
    - **Instructors:** Cannot self-register. Accounts and initial temporary passwords are strictly provisioned and distributed by System Administrators.
 3. **Password Recovery Workflow:**
    - Users can initiate a "Forgot Password" flow that sends a time-sensitive One-Time Password (OTP) to their registered (or alternative) email address. Verifying the OTP unlocks the password reset form.
-4. **Dual-Role Accounts & POV Toggle:**
-   - A single user account can hold multiple roles simultaneously (e.g., `Instructor + Admin` or `Student + Admin`).
-   - Users with administrative privileges have a prominent frosted-glass **POV Toggle Pill** in the top navigation bar that smoothly animates between their standard portal (Instructor/Student view) and the **Admin Dashboard POV**.
+4. **Single-Role Dedicated Portals:**
+   - Each account is provisioned with exactly one dedicated primary role (`Admin`, `Instructor`, or `Student`).
+   - Users access their dedicated portal directly upon sign-in with complete role-based isolation.
 5. **Strict Academic Data Privacy (Admin Restriction):**
    - While Admins have systemic oversight over users and classes, **Admins are strictly blocked at both the UI and API levels from creating, editing, or manipulating grades, attendance records, or individual student academic data.** Academic record modification is exclusively locked to the assigned class instructor.
 

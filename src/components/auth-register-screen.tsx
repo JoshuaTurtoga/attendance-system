@@ -3,7 +3,13 @@
 import React, { useState } from "react";
 import { useAuth } from "@/features/auth/auth-context";
 import { AuthShell, AuthField, AuthErrorBanner } from "./auth-shell";
-import { validateStudentNumber } from "@/lib/auth/auth-engine";
+import {
+  DEPARTMENTS,
+  isUniversityEmail,
+  universityEmailErrorMessage,
+  validateStudentNumber,
+  UNIVERSITY_EMAIL_DOMAIN,
+} from "@/lib/auth/auth-engine";
 import {
   Mail,
   Lock,
@@ -14,16 +20,6 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-const DEPARTMENTS = [
-  "College of Computer Studies",
-  "Computer Science & Engineering",
-  "Information Technology",
-  "College of Science",
-  "College of Engineering",
-  "Mathematics & Statistics",
-  "Humanities & Social Sciences",
-];
-
 export function AuthRegisterScreen() {
   const { registerStudent, goToScreen } = useAuth();
 
@@ -32,16 +28,21 @@ export function AuthRegisterScreen() {
   const [lastName, setLastName] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateStudentNumber(studentNumber)) {
       setError("Student number must follow the YYYY-NNNNN format (e.g. 2024-10492).");
+      return;
+    }
+    if (!isUniversityEmail(email)) {
+      setError(universityEmailErrorMessage());
       return;
     }
     if (password !== confirmPassword) {
@@ -49,7 +50,9 @@ export function AuthRegisterScreen() {
       return;
     }
 
-    const result = registerStudent({
+    setIsSubmitting(true);
+    setError(null);
+    const result = await registerStudent({
       firstName,
       middleName,
       lastName,
@@ -60,6 +63,7 @@ export function AuthRegisterScreen() {
     });
     if (!result.ok) {
       setError(result.error ?? "Unable to create your account.");
+      setIsSubmitting(false);
     }
   };
 
@@ -124,7 +128,8 @@ export function AuthRegisterScreen() {
           label="University Email"
           type="email"
           autoComplete="email"
-          placeholder="you@student.university.edu"
+          placeholder={`you@${UNIVERSITY_EMAIL_DOMAIN}`}
+          hint={`Must end with @${UNIVERSITY_EMAIL_DOMAIN}`}
           icon={<Mail className="w-4 h-4" />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -178,9 +183,10 @@ export function AuthRegisterScreen() {
 
         <button
           type="submit"
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
+          disabled={isSubmitting}
+          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Create Account
+          {isSubmitting ? "Creating Account..." : "Create Account"}
           <ArrowRight className="w-4 h-4" />
         </button>
 

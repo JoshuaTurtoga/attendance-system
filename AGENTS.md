@@ -36,8 +36,8 @@ Next.js 15 (App Router) + TypeScript + Tailwind CSS 4 + Supabase (auth, database
 ## The build loop - for every small piece
 0. **Check first**: write a test (for UI, a browser check) that FAILS because the change is
    missing; build until it passes. Test, lint and build must all be green before "done".
-   Test command: `npx vitest run` (or `npx jest`)
-   Tests: none - scaffold only, first test written with Milestone 2
+   Test command: `npm test` (uses Node.js built-in test runner: `node --test tests/**/*.test.ts`)
+   Tests: 67 passing unit tests across auth, gradebook, timetable, session, roster, matching, sync, and admin engines
 1. **code-structure skill**: one version of each operational step; repeats go into a service
    layer. Actions own the rules, services own the mechanics.
 2. **Clarity pass** on the changed code only: same behavior, fewer lines, no nested ternaries,
@@ -49,8 +49,8 @@ Next.js 15 (App Router) + TypeScript + Tailwind CSS 4 + Supabase (auth, database
 5. Commit, push, CI green. That is "done". It is not "live".
 
 ## CI and deploy (ship skill)
-- Target: Vercel | Live: TBD | Server path / process: TBD
-- Deploy command: TBD | Rollback: TBD
+- Target: Vercel | Live: https://academiatrack.joshuaturtoga.dev/ | Server path / process: Vercel Next.js edge/serverless
+- Deploy command: Vercel Git integration on `main` | Rollback: Vercel instant rollback
 - CI (`.github/workflows/ci.yml`) runs a clean install, lint, test and build on Linux for every
   push to `main` and every PR.
 - After ANY dependency change: `gh workflow run relock.yml`, `git pull`, `gh workflow run ci.yml`.

@@ -1,36 +1,30 @@
 "use client";
 
 import React, { useState } from "react";
-import { useAuth, DEMO_USERS } from "@/features/auth/auth-context";
+import { useAuth } from "@/features/auth/auth-context";
 import { AuthShell, AuthField, AuthErrorBanner } from "./auth-shell";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
-
-const ROLE_LABEL: Record<string, string> = {
-  instructor: "Instructor",
-  admin: "Admin",
-  student: "Student",
-};
+import { UNIVERSITY_EMAIL_DOMAIN } from "@/lib/auth/auth-engine";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck } from "lucide-react";
 
 export function AuthLoginScreen() {
-  const { signIn, goToScreen, demoPassword } = useAuth();
+  const { signIn, goToScreen, authNotice, clearNotice } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = signIn(email, password);
+    setIsSubmitting(true);
+    setError(null);
+    clearNotice();
+    const result = await signIn(email, password);
     if (!result.ok) {
       setError(result.error ?? "Unable to sign in.");
     }
-  };
-
-  const fillDemoAccount = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setError(null);
+    setIsSubmitting(false);
   };
 
   return (
@@ -54,11 +48,18 @@ export function AuthLoginScreen() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthErrorBanner message={error} />
 
+        {authNotice && (
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
+            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{authNotice}</span>
+          </div>
+        )}
+
         <AuthField
           label="University Email"
           type="email"
           autoComplete="email"
-          placeholder="you@university.edu"
+          placeholder={`you@${UNIVERSITY_EMAIL_DOMAIN}`}
           icon={<Mail className="w-4 h-4" />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -102,9 +103,10 @@ export function AuthLoginScreen() {
 
         <button
           type="submit"
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
+          disabled={isSubmitting}
+          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Sign In
+          {isSubmitting ? "Signing In..." : "Sign In"}
           <ArrowRight className="w-4 h-4" />
         </button>
 
@@ -117,45 +119,6 @@ export function AuthLoginScreen() {
           Back to home
         </button>
       </form>
-
-      {/* Demo Accounts */}
-      <div className="mt-8 pt-6 border-t border-zinc-200/80">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-3">
-          Demonstration Accounts
-        </p>
-        <div className="space-y-2">
-          {Object.entries(DEMO_USERS).map(([key, user]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => fillDemoAccount(user.email)}
-              className="w-full flex items-center justify-between gap-3 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/80 transition text-left cursor-pointer group"
-            >
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-zinc-900 truncate">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-[11px] text-zinc-500 font-mono truncate">
-                  {user.email}
-                </p>
-              </div>
-              <span className="flex items-center gap-1 shrink-0">
-                {user.roles.map((r) => (
-                  <span
-                    key={r}
-                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-600 whitespace-nowrap"
-                  >
-                    {ROLE_LABEL[r] ?? r}
-                  </span>
-                ))}
-              </span>
-            </button>
-          ))}
-        </div>
-        <p className="text-[11px] text-zinc-400 mt-3">
-          Select an account to auto-fill its credentials, then press Sign In.
-        </p>
-      </div>
     </AuthShell>
   );
 }

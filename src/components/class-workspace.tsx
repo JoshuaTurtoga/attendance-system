@@ -1,24 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/features/auth/auth-context";
 import type {
   AcademicClass,
   AttendanceRecord,
   ClassSession,
+  ExcuseRequest,
   GradeItem,
+  JoinRequest,
   RosterStudent,
-  SessionType,
   StudentGrade,
 } from "@/types";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
-import {
-  DEFAULT_ROSTER,
-  DEFAULT_GRADE_ITEMS,
-  DEFAULT_STUDENT_GRADES,
-  INITIAL_ATTENDANCE_RECORDS,
-  INITIAL_SESSION_DATES,
-  INITIAL_SESSION_TYPES,
-} from "@/lib/roster/mock-roster";
+import { listRoster, listJoinRequests } from "@/lib/data/roster";
+import { listAttendance, listSessions, listExcuses } from "@/lib/data/attendance";
+import { listGradeItems, listStudentGrades } from "@/lib/data/grades";
 import { downloadExcelWorkbook } from "@/lib/export/excel-export";
 import { detectCrossModuleDiscrepancies } from "@/lib/sync/cross-module-sync";
 import { ClassRosterTable } from "./class-roster-table";
@@ -44,46 +41,102 @@ interface ClassWorkspaceProps {
   autoLaunchGradingToday?: boolean;
 }
 
+const emptySubscribe = () => () => {};
+
+/** Local-time ISO date (YYYY-MM-DD) */
+function toLocalISODate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function ClassWorkspace({
   academicClass,
   activeTab,
   autoLaunchRollCall = false,
   autoLaunchGradingToday = false,
 }: ClassWorkspaceProps) {
+  const { supabase, currentUser } = useAuth();
   const [copiedCode, setCopiedCode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
   // ============================================================
   // UNIFIED CROSS-MODULE STATE (Milestone 9: Smart Sync)
   // Shared across Master Roster, Attendance Tab 2, and Grades Tab 3
   // ============================================================
-  const [students] = useState<RosterStudent[]>(DEFAULT_ROSTER);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(
-    INITIAL_ATTENDANCE_RECORDS
-  );
-  const [sessionDates, setSessionDates] = useState<string[]>(INITIAL_SESSION_DATES);
-  const [sessionTypes, setSessionTypes] = useState<Record<string, SessionType>>(
-    INITIAL_SESSION_TYPES
-  );
-  const [gradeItems, setGradeItems] = useState<GradeItem[]>(DEFAULT_GRADE_ITEMS);
-  const [studentGrades, setStudentGrades] = useState<StudentGrade[]>(
-    DEFAULT_STUDENT_GRADES
-  );
+  const [students, setStudents] = useState<RosterStudent[]>([]);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [sessions, setSessions] = useState<ClassSession[]>([]);
+  const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
+  const [studentGrades, setStudentGrades] = useState<StudentGrade[]>([]);
+  const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>([]);
 
-  const todayIso = "2026-10-16"; // Standard active session date in mock environment
+  const today = isMounted ? new Date() : null;
+  const todayIso = today ? toLocalISODate(today) : "";
 
-  // Convert session dates to ClassSession[]
-  const sessions: ClassSession[] = sessionDates.map((date, idx) => ({
-    id: `sess_${idx + 1}_${date}`,
-    classId: academicClass.id,
-    date,
-    type: sessionTypes[date] || "regular",
-    isLocked: false,
-  }));
+  // Load all class data from Supabase
+  useEffect(() => {
+    if (!supabase || !academicClass.id) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [
+          rosterData,
+          requestsData,
+          attendanceData,
+          sessionsData,
+          gradesItemsData,
+          gradesData,
+          excusesData,
+        ] = await Promise.all([
+          listRoster(supabase, academicClass.id),
+          listJoinRequests(supabase, academicClass.id),
+          listAttendance(supabase, academicClass.id),
+          listSessions(supabase, academicClass.id),
+          listGradeItems(supabase, academicClass.id),
+          listStudentGrades(supabase, academicClass.id),
+          listExcuses(supabase, academicClass.id),
+        ]);
+
+        if (cancelled) return;
+
+        setStudents(rosterData);
+        setJoinRequests(requestsData);
+        setAttendanceRecords(attendanceData);
+        setSessions(sessionsData);
+        setGradeItems(gradesItemsData);
+        setStudentGrades(gradesData);
+        setExcuseRequests(excusesData);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load class data");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, academicClass.id]);
 
   // Cross-Module Discrepancy Detection (Scenario A/B verification)
   const discrepancies = detectCrossModuleDiscrepancies({
-    date: "2026-10-09", // Check historical sessions for conflicts
+    date: todayIso, // Check current session
     students,
     attendanceRecords,
     gradeItems,
@@ -111,34 +164,33 @@ export function ClassWorkspace({
     });
 
     // 2. Ensure session date is recorded
-    const targetDate = createdSession?.date || todayIso;
-    setSessionDates((prev) => {
-      if (!prev.includes(targetDate)) {
-        return [...prev, targetDate].sort();
-      }
-      return prev;
-    });
-
-    setSessionTypes((prev) => ({
-      ...prev,
-      [targetDate]: createdSession?.type || "regular",
-    }));
+    if (createdSession) {
+      setSessions((prev) => {
+        const exists = prev.some((s) => s.date === createdSession.date);
+        if (!exists) return [...prev, createdSession].sort((a, b) => a.date.localeCompare(b.date));
+        return prev;
+      });
+    }
 
     setToastMessage(
-      `Smart Cross-Module Sync: Today's attendance (${targetDate}) automatically generated and synchronized with Tab 2.`
+      `Smart Cross-Module Sync: Today's attendance (${createdSession?.date || todayIso}) automatically generated and synchronized with Tab 2.`
     );
     setTimeout(() => setToastMessage(null), 5000);
   };
 
   // Multi-Sheet Institutional Excel (.xlsx / SpreadsheetML) Export
   const handleExportWorkbook = () => {
+    const instructorName = currentUser 
+      ? `${currentUser.firstName} ${currentUser.lastName}`
+      : "Instructor";
+
     downloadExcelWorkbook(
       {
         courseTitle: academicClass.courseTitle,
         courseCode: academicClass.courseCode,
         section: academicClass.section,
         term: academicClass.term,
-        instructorName: "Dr. Joshua Aquino",
+        instructorName,
         students,
         sessions,
         attendanceRecords,
@@ -150,6 +202,24 @@ export function ClassWorkspace({
     setToastMessage("Institutional workbook generated with Roster, Attendance & Grades.");
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-4">
+        <div className="w-8 h-8 rounded-full border-4 border-zinc-200 border-t-[#7C1D26] animate-spin" />
+        <p className="text-sm font-medium text-zinc-500">Loading class workspace...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 rounded-3xl bg-rose-50 border border-rose-200 text-rose-800 space-y-2">
+        <h3 className="font-bold">Error Loading Workspace</h3>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -270,19 +340,26 @@ export function ClassWorkspace({
         style={{ "--i": 1 } as React.CSSProperties}
       >
         {activeTab === "roster" && (
-          <ClassRosterTable classId={academicClass.id} />
+          <ClassRosterTable 
+            classId={academicClass.id} 
+            sharedStudents={students}
+            onStudentsChange={setStudents}
+            sharedRequests={joinRequests}
+            onRequestsChange={setJoinRequests}
+          />
         )}
 
         {activeTab === "attendance" && (
           <ClassAttendanceSheet
             academicClass={academicClass}
             autoLaunchRollCall={autoLaunchRollCall}
+            sharedStudents={students}
             sharedRecords={attendanceRecords}
             onRecordsChange={setAttendanceRecords}
-            sharedSessionDates={sessionDates}
-            onSessionDatesChange={setSessionDates}
-            sharedSessionTypes={sessionTypes}
-            onSessionTypesChange={setSessionTypes}
+            sharedSessions={sessions}
+            onSessionsChange={setSessions}
+            sharedExcuseRequests={excuseRequests}
+            onExcuseRequestsChange={setExcuseRequests}
             gradeItems={gradeItems}
             studentGrades={studentGrades}
           />
@@ -292,6 +369,7 @@ export function ClassWorkspace({
           <ClassGradesMatrix
             academicClass={academicClass}
             autoLaunchGradingToday={autoLaunchGradingToday}
+            sharedStudents={students}
             todayAttendance={attendanceRecords.filter((a) => a.date === todayIso)}
             allAttendanceRecords={attendanceRecords}
             sharedGradeItems={gradeItems}

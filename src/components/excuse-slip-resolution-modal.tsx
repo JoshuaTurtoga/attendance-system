@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAuth } from "@/features/auth/auth-context";
 import type { ExcuseRequest, AttendanceRecord } from "@/types";
-import {
-  resolveExcuseSlipApproval,
-  resolveExcuseSlipDecline,
-} from "@/lib/attendance/session-engine";
+import { approveExcuse, declineExcuse } from "@/lib/data/attendance";
 import {
   ShieldCheck,
   XCircle,
@@ -19,10 +17,10 @@ import {
 interface ExcuseSlipResolutionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  classId: string;
   requests: ExcuseRequest[];
   attendanceRecords: AttendanceRecord[];
-  onUpdateRecord: (updatedRecord: AttendanceRecord) => void;
-  onUpdateRequests: (updatedRequests: ExcuseRequest[]) => void;
+  onRefresh: () => Promise<void>;
 }
 
 const COMMON_DECLINE_REASONS = [
@@ -35,49 +33,56 @@ const COMMON_DECLINE_REASONS = [
 export function ExcuseSlipResolutionModal({
   isOpen,
   onClose,
+  classId: _classId,
   requests,
-  attendanceRecords,
-  onUpdateRecord,
-  onUpdateRequests,
+  attendanceRecords: _attendanceRecords,
+  onRefresh,
 }: ExcuseSlipResolutionModalProps) {
+  const { supabase } = useAuth();
   const [activeTab, setActiveTab] = useState<"pending" | "resolved">("pending");
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen) return null;
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const resolvedRequests = requests.filter((r) => r.status !== "pending");
 
-  const handleApprove = (req: ExcuseRequest) => {
-    const { updatedRecord, updatedRequest } = resolveExcuseSlipApproval(
-      req,
-      attendanceRecords
-    );
-
-    onUpdateRecord(updatedRecord);
-    onUpdateRequests(
-      requests.map((r) => (r.id === req.id ? updatedRequest : r))
-    );
-
-    setFeedbackMsg(`Approved excuse slip for ${req.studentName}. Status changed to Excused (E).`);
-    setTimeout(() => setFeedbackMsg(null), 3500);
+  const handleApprove = async (req: ExcuseRequest) => {
+    if (!supabase || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await approveExcuse(supabase, req);
+      await onRefresh();
+      setFeedbackMsg(`Approved excuse slip for ${req.studentName}. Status changed to Excused (E).`);
+      setTimeout(() => setFeedbackMsg(null), 3500);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to approve excuse");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDeclineConfirm = (req: ExcuseRequest) => {
+  const handleDeclineConfirm = async (req: ExcuseRequest) => {
+    if (!supabase || isProcessing) return;
     const reason = declineReason.trim() || "Did not meet institutional excuse policy criteria.";
-    const declinedReq = resolveExcuseSlipDecline(req, reason);
-
-    onUpdateRequests(
-      requests.map((r) => (r.id === req.id ? declinedReq : r))
-    );
-
-    setDecliningRequestId(null);
-    setDeclineReason("");
-    setFeedbackMsg(`Declined excuse request for ${req.studentName}.`);
-    setTimeout(() => setFeedbackMsg(null), 3500);
+    
+    setIsProcessing(true);
+    try {
+      await declineExcuse(supabase, req.id, reason);
+      await onRefresh();
+      setDecliningRequestId(null);
+      setDeclineReason("");
+      setFeedbackMsg(`Declined excuse request for ${req.studentName}.`);
+      setTimeout(() => setFeedbackMsg(null), 3500);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to decline excuse");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

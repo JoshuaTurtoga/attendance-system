@@ -121,6 +121,7 @@ export interface StudentGrade {
 export interface JoinRequest {
   id: string;
   classId: string;
+  requesterId?: string;
   studentNumber: string;
   studentName: string;
   program: string;
@@ -129,4 +130,15 @@ export interface JoinRequest {
   status: "pending" | "approved" | "declined";
   rejectionReason?: string;
   submittedAt: string;
+}
+
+export interface Notification {
+  id: string;
+  recipientId: string;
+  classId?: string;
+  kind: string;
+  title: string;
+  body?: string;
+  isRead: boolean;
+  createdAt: string;
 }

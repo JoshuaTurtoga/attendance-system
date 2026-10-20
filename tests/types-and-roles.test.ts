@@ -19,13 +19,7 @@ test("Academic Data Isolation: only instructors can modify academic records", ()
   assert.equal(canUserModifyAcademicRecords("student"), false);
 });
 
-test("POV Toggle: dual-role accounts resolve available view options", () => {
-  const instructorAdmin: Role[] = ["instructor", "admin"];
-  assert.deepEqual(getAvailableViews(instructorAdmin), ["instructor", "admin"]);
-
-  const studentAdmin: Role[] = ["student", "admin"];
-  assert.deepEqual(getAvailableViews(studentAdmin), ["student", "admin"]);
-
+test("Role Resolution: single-role accounts resolve available view options", () => {
   const singleInstructor: Role[] = ["instructor"];
   assert.deepEqual(getAvailableViews(singleInstructor), ["instructor"]);
 
@@ -36,16 +30,20 @@ test("POV Toggle: dual-role accounts resolve available view options", () => {
   assert.deepEqual(getAvailableViews(singleAdmin), ["admin"]);
 });
 
-test("POV Toggle: switchActiveView allows valid switching and rejects unauthorized views", () => {
-  const dualRoles: Role[] = ["instructor", "admin"];
-  assert.equal(switchActiveView(dualRoles, "admin"), "admin");
-  assert.equal(switchActiveView(dualRoles, "instructor"), "instructor");
+test("Role Permissions: users can only access their assigned role and are blocked from other views", () => {
+  const instructorRoles: Role[] = ["instructor"];
+  assert.equal(switchActiveView(instructorRoles, "instructor"), "instructor");
   assert.throws(
-    () => switchActiveView(dualRoles, "student"),
+    () => switchActiveView(instructorRoles, "admin"),
+    /User does not hold the role 'admin'/
+  );
+  assert.throws(
+    () => switchActiveView(instructorRoles, "student"),
     /User does not hold the role 'student'/
   );
 
   const studentRoles: Role[] = ["student"];
+  assert.equal(switchActiveView(studentRoles, "student"), "student");
   assert.throws(
     () => switchActiveView(studentRoles, "admin"),
     /User does not hold the role 'admin'/

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import type { AcademicClass, ClassType, ScheduleBlock } from "@/types";
+import type { ClassType, ScheduleBlock } from "@/types";
+import type { CreateClassInput } from "@/lib/data/classes";
 import { generateClassCode } from "@/lib/attendance/attendance-engine";
 import { WEEKDAYS, DayOfWeek } from "@/lib/schedule/timetable-engine";
 import {
@@ -16,15 +17,13 @@ import {
 interface CreateClassModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onClassCreated: (newClass: AcademicClass) => void;
-  instructorId: string;
+  onClassCreated: (input: CreateClassInput) => Promise<void>;
 }
 
 export function CreateClassModal({
   isOpen,
   onClose,
   onClassCreated,
-  instructorId,
 }: CreateClassModalProps) {
   const [courseCode, setCourseCode] = useState("");
   const [courseTitle, setCourseTitle] = useState("");
@@ -52,6 +51,9 @@ export function CreateClassModal({
     { dayOfWeek: "Monday", startTime: "09:00", endTime: "10:30", room: "Room 402" },
     { dayOfWeek: "Wednesday", startTime: "13:00", endTime: "15:00", room: "Lab 3" },
   ]);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -93,7 +95,7 @@ export function CreateClassModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!courseCode.trim() || !section.trim()) return;
 
@@ -109,23 +111,28 @@ export function CreateClassModal({
       }));
     }
 
-    const newClass: AcademicClass = {
-      id: `cls_${Date.now()}`,
+    const input: CreateClassInput = {
       courseCode: courseCode.trim().toUpperCase(),
       courseTitle: courseTitle.trim() || courseCode.trim().toUpperCase(),
       section: section.trim().toUpperCase(),
       classType,
       units,
       term,
-      instructorId,
       joinCode: generatedCode,
       schedule: finalSchedule,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    onClassCreated(newClass);
-    onClose();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await onClassCreated(input);
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save the class. Please try again."
+      );
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -156,6 +163,11 @@ export function CreateClassModal({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+              {error}
+            </div>
+          )}
           {/* Row 1: Course Code, Title & Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -436,9 +448,10 @@ export function CreateClassModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Save Class Workspace
+              {isSubmitting ? "Saving..." : "Save Class Workspace"}
             </button>
           </div>
         </form>

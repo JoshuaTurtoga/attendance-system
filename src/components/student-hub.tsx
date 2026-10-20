@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useAuth } from "@/features/auth/auth-context";
 import type {
   AcademicClass,
@@ -8,19 +14,26 @@ import type {
   ExcuseRequest,
   GradeItem,
   JoinRequest,
+  Notification,
+  RosterStudent,
   StudentGrade,
 } from "@/types";
-import {
-  DEFAULT_GRADE_ITEMS,
-  DEFAULT_STUDENT_GRADES,
-  INITIAL_ATTENDANCE_RECORDS,
-  DEFAULT_EXCUSE_REQUESTS,
-} from "@/lib/roster/mock-roster";
 import {
   computeStudentPersonalSummary,
   mergeStudentTimetable,
   type ExternalSubject,
 } from "@/lib/student/student-portal-engine";
+import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
+import { listVisibleClasses } from "@/lib/data/classes";
+import { listMyJoinRequests, listMyRosterEntries } from "@/lib/data/roster";
+import { listAttendance, listExcuses, submitExcuse } from "@/lib/data/attendance";
+import { listGradeItems, listStudentGrades } from "@/lib/data/grades";
+import {
+  listNotifications,
+  markNotificationRead,
+  subscribeToNotifications,
+} from "@/lib/data/notifications";
+import { EmptyState } from "./empty-state";
 import { StudentClassDetailModal } from "./student-class-detail-modal";
 import { StudentJoinClassModal } from "./student-join-class-modal";
 import { StudentExternalClassModal } from "./student-external-class-modal";
@@ -43,112 +56,73 @@ export interface StudentHubProps {
   activeTab?: StudentTab;
 }
 
+const emptySubscribe = () => () => {};
+
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** Local-time ISO date (YYYY-MM-DD) so "today" matches the user's calendar. */
+function toLocalISODate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Human-readable relative time for a notification timestamp. */
+function formatRelativeTime(iso: string): string {
+  const timestamp = new Date(iso).getTime();
+  if (Number.isNaN(timestamp)) return "";
+  const minutes = Math.floor((Date.now() - timestamp) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Reads the four attendance statuses without inventing new ones. */
+function attendanceStatusLabel(status: AttendanceRecord["status"]): string {
+  if (status === "P") return "Present (P)";
+  if (status === "L") return "Late (L)";
+  if (status === "E") return "Excused (E)";
+  return "Absent (A)";
+}
+
 export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
-  const { currentUser } = useAuth();
+  const { currentUser, supabase } = useAuth();
 
-  // Active student identity
-  const studentId = "stud_01"; // Sofia Aquino's ID in roster
-  const studentNumber = currentUser.studentNumber || "2024-10821";
-  const studentName = `${currentUser.firstName} ${currentUser.lastName}`;
-  const program = "BSCS";
-  const academicLevel = "3rd Year";
-
-  // Enrolled university classes
-  const [enrolledClasses] = useState<AcademicClass[]>([
-    {
-      id: "cls_01",
-      courseCode: "STAS",
-      courseTitle: "Science, Technology and Society",
-      section: "E106-R",
-      classType: "Lecture",
-      units: 3,
-      term: "1st Semester 2026-2027",
-      instructorId: "inst_01",
-      joinCode: "STAS01",
-      createdAt: "2026-10-01",
-      updatedAt: "2026-10-01",
-      schedule: [
-        {
-          dayOfWeek: "Friday",
-          startTime: "09:00",
-          endTime: "10:30",
-          room: "Room 402",
-        },
-        {
-          dayOfWeek: "Wednesday",
-          startTime: "09:00",
-          endTime: "10:30",
-          room: "Room 402",
-        },
-      ],
-    },
-    {
-      id: "cls_02",
-      courseCode: "CS 312",
-      courseTitle: "Algorithms & Complex Data Structures",
-      section: "CS3A",
-      classType: "Laboratory",
-      units: 3,
-      term: "1st Semester 2026-2027",
-      instructorId: "inst_02",
-      joinCode: "CS312A",
-      createdAt: "2026-10-01",
-      updatedAt: "2026-10-01",
-      schedule: [
-        {
-          dayOfWeek: "Tuesday",
-          startTime: "13:00",
-          endTime: "15:00",
-          room: "Lab 3",
-        },
-        {
-          dayOfWeek: "Thursday",
-          startTime: "13:00",
-          endTime: "15:00",
-          room: "Lab 3",
-        },
-      ],
-    },
-  ]);
-
-  // Personal academic records
-  const [attendanceRecords] = useState<AttendanceRecord[]>(
-    INITIAL_ATTENDANCE_RECORDS
-  );
-  const [gradeItems] = useState<GradeItem[]>(DEFAULT_GRADE_ITEMS);
-  const [studentGrades] = useState<StudentGrade[]>(DEFAULT_STUDENT_GRADES);
-  const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>(
-    DEFAULT_EXCUSE_REQUESTS
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
   );
 
-  // External timetable subjects (DOCUMENTATION.md § 4.C.3)
-  const [externalSubjects, setExternalSubjects] = useState<ExternalSubject[]>([
-    {
-      id: "ext_01",
-      title: "PATHFIT 3 - Sports & Physical Fitness",
-      dayOfWeek: "Monday",
-      startTime: "10:00",
-      endTime: "12:00",
-      room: "University Gymnasium",
-      color: "#059669",
-    },
-  ]);
+  const [enrolledClasses, setEnrolledClasses] = useState<AcademicClass[]>([]);
+  const [rosterEntries, setRosterEntries] = useState<RosterStudent[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
+  const [studentGrades, setStudentGrades] = useState<StudentGrade[]>([]);
+  const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>([]);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Join Requests Tracker
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([
-    {
-      id: "req_demo_01",
-      classId: "cls_03",
-      studentNumber,
-      studentName,
-      program,
-      academicLevel,
-      photoIdUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-      status: "declined",
-      rejectionReason: "Official pre-populated master roster quota for Section A is full. Please apply for Section B.",
-      submittedAt: "2026-10-12 10:15 AM",
-    },
-  ]);
+  // External subjects are local-only (no table) and never seeded with samples.
+  const [externalSubjects, setExternalSubjects] = useState<ExternalSubject[]>([]);
 
   // Modals state
   const [selectedClassForDetail, setSelectedClassForDetail] = useState<AcademicClass | null>(null);
@@ -157,54 +131,195 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [joinSuccessBanner, setJoinSuccessBanner] = useState<string | null>(null);
 
-  // In-app notifications
-  const [notifications] = useState([
-    {
-      id: "notif_1",
-      title: "New Assessment Grade Recorded",
-      body: "Dr. Joshua Aquino posted scores for Quiz 1: Scientific Revolution (STAS).",
-      time: "2 hours ago",
-      type: "grade",
-    },
-    {
-      id: "notif_2",
-      title: "Join Application Status",
-      body: "Your application for MATH 201 was updated by instructor.",
-      time: "1 day ago",
-      type: "application",
-    },
-    {
-      id: "notif_3",
-      title: "Attendance Notice",
-      body: "Today's roll-call for STAS has been completed.",
-      time: "2 days ago",
-      type: "attendance",
-    },
-  ]);
+  // The student's roster row per class carries the real identity used by
+  // attendance and grade records (the roster row id is the `studentId`).
+  const rosterByClass = useMemo(() => {
+    const map = new Map<string, RosterStudent>();
+    for (const entry of rosterEntries) map.set(entry.classId, entry);
+    return map;
+  }, [rosterEntries]);
 
-  // Unified timetable
+  const rosterIdForClass = (classId: string) => rosterByClass.get(classId)?.id ?? "";
+
+  const studentName =
+    `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim();
+  const primaryRoster = rosterEntries[0];
+  const studentNumber =
+    primaryRoster?.studentNumber ?? currentUser?.studentNumber ?? "";
+  const program = primaryRoster?.program ?? currentUser?.department ?? "";
+  const academicLevel = primaryRoster?.academicLevel ?? "";
+
+  // Load the whole portal from Supabase whenever the signed-in user is ready.
+  useEffect(() => {
+    if (!supabase || !currentUser) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const classes = await listVisibleClasses(supabase);
+        const roster = await listMyRosterEntries(supabase, currentUser.id);
+        const [attendance, items, grades, excuses, requests] = await Promise.all([
+          Promise.all(classes.map((cls) => listAttendance(supabase, cls.id))),
+          Promise.all(classes.map((cls) => listGradeItems(supabase, cls.id))),
+          Promise.all(classes.map((cls) => listStudentGrades(supabase, cls.id))),
+          Promise.all(classes.map((cls) => listExcuses(supabase, cls.id))),
+          listMyJoinRequests(supabase, currentUser.id),
+        ]);
+        if (cancelled) return;
+        setEnrolledClasses(classes);
+        setRosterEntries(roster);
+        setAttendanceRecords(attendance.flat());
+        setGradeItems(items.flat());
+        setStudentGrades(grades.flat());
+        setExcuseRequests(excuses.flat());
+        setJoinRequests(requests);
+      } catch (err) {
+        if (!cancelled) {
+          setErrorMessage(
+            err instanceof Error ? err.message : "Unable to load your student portal."
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, currentUser]);
+
+  // Live notifications: initial load + realtime INSERT stream.
+  useEffect(() => {
+    if (!supabase || !currentUser) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const items = await listNotifications(supabase, currentUser.id);
+        if (!cancelled) setNotifications(items);
+      } catch {
+        // Notifications are non-critical; the empty state covers failures.
+      }
+    })();
+
+    const unsubscribe = subscribeToNotifications(
+      supabase,
+      currentUser.id,
+      (notification) => setNotifications((prev) => [notification, ...prev])
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [supabase, currentUser]);
+
+  const reloadJoinRequests = useCallback(async () => {
+    if (!supabase || !currentUser) return;
+    try {
+      setJoinRequests(await listMyJoinRequests(supabase, currentUser.id));
+    } catch {
+      // Keep the existing list on a transient failure.
+    }
+  }, [supabase, currentUser]);
+
+  const today = isMounted ? new Date() : null;
+  const todayWeekday = today ? WEEKDAY_NAMES[today.getDay()] : "";
+  const todayISO = today ? toLocalISODate(today) : "";
+  const todayLabel = today
+    ? today.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+
   const unifiedTimetable = mergeStudentTimetable(enrolledClasses, externalSubjects);
 
-  // Today's classes (active mock day is Friday / 2026-10-16)
-  const todayClasses = enrolledClasses.filter((cls) =>
-    cls.schedule.some((s) => s.dayOfWeek === "Friday")
-  );
+  const todayClasses = today
+    ? enrolledClasses.filter((cls) =>
+        cls.schedule.some((block) => block.dayOfWeek === todayWeekday)
+      )
+    : [];
 
-  const handleJoinSubmitted = (
-    request: JoinRequest,
-    courseName: string,
-    instructorName: string
-  ) => {
-    setJoinRequests((prev) => [request, ...prev]);
+  const hasUnreadNotifications = notifications.some((n) => !n.isRead);
+
+  const handleToggleNotifications = () => {
+    const nextOpen = !isNotificationOpen;
+    setIsNotificationOpen(nextOpen);
+    if (nextOpen && supabase) {
+      const unread = notifications.filter((n) => !n.isRead);
+      if (unread.length > 0) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        void Promise.all(
+          unread.map((n) => markNotificationRead(supabase, n.id).catch(() => {}))
+        );
+      }
+    }
+  };
+
+  const handleJoinSubmitted = (courseName: string) => {
     setJoinSuccessBanner(
-      `Successfully sent a request to join the class "${courseName}" to Instructor ${instructorName}.`
+      `Application sent to join "${courseName}". Your instructor will review and approve your enrolment.`
     );
     setTimeout(() => setJoinSuccessBanner(null), 6000);
+    void reloadJoinRequests();
   };
 
   const handleFileExcuseRequest = (request: ExcuseRequest) => {
     setExcuseRequests((prev) => [request, ...prev]);
+    if (!supabase || !currentUser) return;
+    void submitExcuse(supabase, {
+      classId: request.classId,
+      studentId: request.studentId,
+      submittedBy: currentUser.id,
+      studentName: request.studentName,
+      studentNumber: request.studentNumber,
+      date: request.date,
+      reason: request.reason,
+      documentUrl: request.documentUrl,
+    }).catch(() => {
+      // A reload reconciles any server-side rejection.
+    });
   };
+
+  const joinClassEmptyState = (
+    <EmptyState
+      icon={<GraduationCap className="w-6 h-6" />}
+      title="No classes joined yet"
+      description="Join your first class with the join code from your instructor to unlock attendance, grades, and your personal timetable."
+      action={
+        <button
+          type="button"
+          onClick={() => setIsJoinModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
+        >
+          <KeyRound className="w-4 h-4 shrink-0" />
+          <span>Join a Class</span>
+        </button>
+      }
+    />
+  );
+
+  const loadingState = (
+    <div className="flex items-center justify-center gap-2 py-12 text-xs font-semibold text-zinc-500">
+      <span className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
+      Loading your portal…
+    </div>
+  );
+
+  const metaParts = [
+    studentNumber ? `Student Number: ${studentNumber}` : null,
+    program && academicLevel
+      ? `${program} (${academicLevel})`
+      : program || academicLevel || null,
+    currentUser?.email ?? null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-8">
@@ -229,42 +344,56 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             <span className="min-w-0 truncate">Official University Student Portal</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-zinc-950 mt-1 tracking-tight truncate">
-            Welcome, {studentName}
+            Welcome{studentName ? `, ${studentName}` : ""}
           </h1>
-          <p className="text-xs text-zinc-500 mt-1 font-mono break-words">
-            Student Number: {studentNumber} • {program} ({academicLevel}) • {currentUser.email}
-          </p>
+          {metaParts.length > 0 && (
+            <p className="text-xs text-zinc-500 mt-1 font-mono truncate">
+              {metaParts.join(" • ")}
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Notification Bell */}
           <div className="relative">
             <button
-              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+              onClick={handleToggleNotifications}
               className="p-2.5 rounded-2xl bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 transition shadow-xs cursor-pointer relative"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#7C1D26]" />
+              {hasUnreadNotifications && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#7C1D26]" />
+              )}
             </button>
 
             {isNotificationOpen && (
               <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-zinc-200 p-4 z-40 space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
                   <span className="text-xs font-bold text-zinc-900">Notifications</span>
-                  <span className="text-[10px] text-zinc-400 font-mono">Real-Time Alerts</span>
+                  <span className="text-[10px] text-zinc-400 font-mono whitespace-nowrap">
+                    Real-Time Alerts
+                  </span>
                 </div>
-                <div className="divide-y divide-zinc-100 max-h-60 overflow-y-auto space-y-2">
-                  {notifications.map((n) => (
-                    <div key={n.id} className="pt-2 text-xs">
-                      <p className="font-bold text-zinc-900">{n.title}</p>
-                      <p className="text-zinc-500 text-[11px] mt-0.5">{n.body}</p>
-                      <span className="text-[10px] text-zinc-400 font-mono mt-1 block">
-                        {n.time}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {notifications.length === 0 ? (
+                  <p className="py-6 text-center text-[11px] text-zinc-400">
+                    No notifications yet
+                  </p>
+                ) : (
+                  <div className="divide-y divide-zinc-100 max-h-60 overflow-y-auto space-y-2">
+                    {notifications.map((n) => (
+                      <div key={n.id} className="pt-2 text-xs">
+                        <p className="font-bold text-zinc-900 truncate">{n.title}</p>
+                        {n.body && (
+                          <p className="text-zinc-500 text-[11px] mt-0.5">{n.body}</p>
+                        )}
+                        <span className="text-[10px] text-zinc-400 font-mono mt-1 block whitespace-nowrap">
+                          {formatRelativeTime(n.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -272,13 +401,20 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
           {/* Join Class Launcher Button */}
           <button
             onClick={() => setIsJoinModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shadow-md shadow-[#7C1D26]/20 transition cursor-pointer whitespace-nowrap"
           >
-            <KeyRound className="w-4 h-4" />
+            <KeyRound className="w-4 h-4 shrink-0" />
             <span>Join a Class</span>
           </button>
         </div>
       </div>
+
+      {/* Load error banner */}
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+          {errorMessage}
+        </div>
+      )}
 
       {/* ======================================================= */}
       {/* TAB 1: TODAY'S DASHBOARD (DOCUMENTATION.md § 4.C.2)     */}
@@ -289,136 +425,171 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             className="stagger-block flex items-center justify-between"
             style={{ "--i": 2 } as React.CSSProperties}
           >
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 Today&apos;s Scheduled Classes &amp; Real-Time Standing
               </h2>
-              <p className="text-xs text-zinc-500">
-                Friday, October 16, 2026 • Live attendance status &amp; daily assessment results
+              <p className="text-xs text-zinc-500 truncate">
+                {todayLabel ? `${todayLabel} • ` : ""}Live attendance status &amp; daily
+                assessment results
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {todayClasses.map((cls, idx) => {
-              const summary = computeStudentPersonalSummary({
-                studentId,
-                classId: cls.id,
-                attendanceRecords,
-                gradeItems,
-                studentGrades,
-              });
-
-              // Check if attendance exists today (2026-10-16)
-              const todayRecord = attendanceRecords.find(
-                (a) => a.classId === cls.id && a.studentId === studentId && a.date === "2026-10-16"
-              );
-
-              // Check if any grade was posted today
-              const todayGradesList = gradeItems
-                .filter((g) => g.classId === cls.id && g.date === "2026-10-16")
-                .map((g) => {
-                  const scoreObj = studentGrades.find(
-                    (sg) => sg.gradeItemId === g.id && sg.studentId === studentId
-                  );
-                  return { title: g.title, maxScore: g.maxScore, score: scoreObj?.score };
+          {isLoading ? (
+            loadingState
+          ) : enrolledClasses.length === 0 ? (
+            joinClassEmptyState
+          ) : todayClasses.length === 0 ? (
+            <EmptyState
+              icon={<Calendar className="w-6 h-6" />}
+              title="No classes scheduled today"
+              description="You have no classes on your timetable for today. Check the Classes and Timetable tabs for the rest of your week."
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {todayClasses.map((cls, idx) => {
+                const studentId = rosterIdForClass(cls.id);
+                const summary = computeStudentPersonalSummary({
+                  studentId,
+                  classId: cls.id,
+                  attendanceRecords,
+                  gradeItems,
+                  studentGrades,
                 });
 
-              return (
-                <div
-                  key={cls.id}
-                  onClick={() => setSelectedClassForDetail(cls)}
-                  className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-5 cursor-pointer group"
-                  style={{ "--i": 3 + idx } as React.CSSProperties}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
-                          {cls.courseCode} • {cls.section}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
-                          {cls.classType}
-                        </span>
-                      </div>
-                      <h3 className="text-base font-bold text-zinc-950 mt-2 group-hover:text-[#7C1D26] transition break-words">
-                        {cls.courseTitle}
-                      </h3>
-                      <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2">
-                        <span>Room 402</span>
-                        <span>•</span>
-                        <span>09:00 AM - 10:30 AM</span>
-                      </p>
-                    </div>
+                const todayBlock = cls.schedule.find(
+                  (block) => block.dayOfWeek === todayWeekday
+                );
 
-                    <span className="p-2 rounded-xl bg-zinc-50 text-zinc-400 group-hover:text-[#7C1D26] group-hover:bg-[#7C1D26]/10 transition">
-                      <ChevronRight className="w-5 h-5" />
-                    </span>
-                  </div>
+                const todayRecord = attendanceRecords.find(
+                  (a) =>
+                    a.classId === cls.id &&
+                    a.studentId === studentId &&
+                    a.date === todayISO
+                );
 
-                  {/* Today's Live Status Indicators */}
-                  <div className="p-4 rounded-2xl bg-zinc-50/80 border border-zinc-200/80 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-zinc-600">Today&apos;s Roll-Call Status:</span>
-                      {todayRecord ? (
-                        <span
-                          className={`font-bold px-2.5 py-0.5 rounded-full text-xs border whitespace-nowrap ${
-                            todayRecord.status === "P"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                              : todayRecord.status === "L"
-                              ? "bg-amber-50 text-amber-800 border-amber-200"
-                              : todayRecord.status === "E"
-                              ? "bg-blue-50 text-blue-800 border-blue-200"
-                              : "bg-rose-50 text-rose-800 border-rose-200"
-                          }`}
-                        >
-                          {todayRecord.status === "P"
-                            ? "Present (P)"
-                            : todayRecord.status === "L"
-                            ? "Late (L)"
-                            : todayRecord.status === "E"
-                            ? "Excused (E)"
-                            : "Absent (A)"}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-400 font-mono text-[11px] italic">
-                          Roll-call in progress
-                        </span>
-                      )}
-                    </div>
+                const todayGradesList = gradeItems
+                  .filter((g) => g.classId === cls.id && g.date === todayISO)
+                  .map((g) => {
+                    const scoreObj = studentGrades.find(
+                      (sg) => sg.gradeItemId === g.id && sg.studentId === studentId
+                    );
+                    return {
+                      id: g.id,
+                      title: g.title,
+                      maxScore: g.maxScore,
+                      score: scoreObj?.score,
+                    };
+                  });
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-zinc-600">Assessments Today:</span>
-                      {todayGradesList.length > 0 ? (
-                        <div className="text-right">
-                          {todayGradesList.map((tg, idx) => (
-                            <span key={idx} className="font-mono font-bold text-zinc-900 block">
-                              {tg.score !== null && tg.score !== undefined
-                                ? `${tg.score}/${tg.maxScore} pts`
-                                : "Unrecorded"}
-                            </span>
-                          ))}
+                return (
+                  <div
+                    key={cls.id}
+                    onClick={() => setSelectedClassForDetail(cls)}
+                    className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-5 cursor-pointer group"
+                    style={{ "--i": 3 + idx } as React.CSSProperties}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
+                            {cls.courseCode} • {cls.section}
+                          </span>
+                          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
+                            {cls.classType}
+                          </span>
                         </div>
-                      ) : (
-                        <span className="text-zinc-400 text-[11px]">No assessments dated today</span>
-                      )}
+                        <h3 className="text-base font-bold text-zinc-950 mt-2 group-hover:text-[#7C1D26] transition truncate">
+                          {cls.courseTitle}
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2">
+                          <span className="truncate">{todayBlock?.room ?? "TBA"}</span>
+                          <span>•</span>
+                          <span className="whitespace-nowrap">
+                            {todayBlock
+                              ? `${formatTime12Hour(todayBlock.startTime)} - ${formatTime12Hour(todayBlock.endTime)}`
+                              : "Schedule TBA"}
+                          </span>
+                        </p>
+                      </div>
+
+                      <span className="p-2 rounded-xl bg-zinc-50 text-zinc-400 group-hover:text-[#7C1D26] group-hover:bg-[#7C1D26]/10 transition">
+                        <ChevronRight className="w-5 h-5" />
+                      </span>
+                    </div>
+
+                    {/* Today's Live Status Indicators */}
+                    <div className="p-4 rounded-2xl bg-zinc-50/80 border border-zinc-200/80 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-zinc-600">
+                          Today&apos;s Roll-Call Status:
+                        </span>
+                        {todayRecord ? (
+                          <span
+                            className={`font-bold px-2.5 py-0.5 rounded-full text-xs border whitespace-nowrap ${
+                              todayRecord.status === "P"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : todayRecord.status === "L"
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : todayRecord.status === "E"
+                                ? "bg-blue-50 text-blue-800 border-blue-200"
+                                : "bg-rose-50 text-rose-800 border-rose-200"
+                            }`}
+                          >
+                            {attendanceStatusLabel(todayRecord.status)}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400 font-mono text-[11px] italic whitespace-nowrap">
+                            Roll-call in progress
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-zinc-600">Assessments Today:</span>
+                        {todayGradesList.length > 0 ? (
+                          <div className="text-right">
+                            {todayGradesList.map((tg) => (
+                              <span
+                                key={tg.id}
+                                className="font-mono font-bold text-zinc-900 block whitespace-nowrap"
+                              >
+                                {tg.score !== null && tg.score !== undefined
+                                  ? `${tg.score}/${tg.maxScore} pts`
+                                  : "Unrecorded"}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-400 text-[11px] whitespace-nowrap">
+                            No assessments dated today
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Overall Standing Footer */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-zinc-100">
+                      <span className="text-zinc-500 truncate">
+                        Overall Standing:{" "}
+                        <strong className="text-zinc-900">
+                          {summary.grades.finalGrade !== null
+                            ? `${summary.grades.finalGrade}%`
+                            : "--"}
+                        </strong>{" "}
+                        ({summary.grades.letterGrade})
+                      </span>
+                      <span className="text-[#7C1D26] font-bold text-[11px] flex items-center gap-1 whitespace-nowrap">
+                        <span>View My Records</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </span>
                     </div>
                   </div>
-
-                  {/* Overall Standing Footer */}
-                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-zinc-100">
-                    <span className="text-zinc-500">
-                      Overall Standing: <strong className="text-zinc-900">{summary.grades.finalGrade}%</strong> ({summary.grades.letterGrade})
-                    </span>
-                    <span className="text-[#7C1D26] font-bold text-[11px] flex items-center gap-1">
-                      <span>View My Records</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -431,101 +602,119 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             className="stagger-block flex items-center justify-between"
             style={{ "--i": 2 } as React.CSSProperties}
           >
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 My Enrolled Classes &amp; Academic Performance
               </h2>
               <p className="text-xs text-zinc-500">
-                Click any class card to view your complete personal attendance history, excused slips, and grade breakdown.
+                Click any class card to view your complete personal attendance history,
+                excused slips, and grade breakdown.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {enrolledClasses.map((cls, idx) => {
-              const summary = computeStudentPersonalSummary({
-                studentId,
-                classId: cls.id,
-                attendanceRecords,
-                gradeItems,
-                studentGrades,
-              });
+          {isLoading ? (
+            loadingState
+          ) : enrolledClasses.length === 0 ? (
+            joinClassEmptyState
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {enrolledClasses.map((cls, idx) => {
+                const studentId = rosterIdForClass(cls.id);
+                const summary = computeStudentPersonalSummary({
+                  studentId,
+                  classId: cls.id,
+                  attendanceRecords,
+                  gradeItems,
+                  studentGrades,
+                });
 
-              return (
-                <div
-                  key={cls.id}
-                  onClick={() => setSelectedClassForDetail(cls)}
-                  className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-4 cursor-pointer group"
-                  style={{ "--i": 3 + idx } as React.CSSProperties}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
-                          {cls.courseCode} • {cls.section}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
-                          {cls.classType}
-                        </span>
+                return (
+                  <div
+                    key={cls.id}
+                    onClick={() => setSelectedClassForDetail(cls)}
+                    className="stagger-block p-6 rounded-3xl bg-white border border-zinc-200/90 shadow-sm hover:shadow-md hover:border-[#7C1D26]/40 transition space-y-4 cursor-pointer group"
+                    style={{ "--i": 3 + idx } as React.CSSProperties}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-[#7C1D26] bg-[#7C1D26]/5 px-2.5 py-0.5 rounded border border-[#7C1D26]/20 whitespace-nowrap">
+                            {cls.courseCode} • {cls.section}
+                          </span>
+                          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 whitespace-nowrap">
+                            {cls.classType}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-zinc-950 mt-1.5 group-hover:text-[#7C1D26] transition truncate">
+                          {cls.courseTitle}
+                        </h3>
+                        <p className="text-xs text-zinc-500 mt-0.5 truncate">
+                          {cls.units} Units • {cls.term}
+                        </p>
                       </div>
-                      <h3 className="text-base font-bold text-zinc-950 mt-1.5 group-hover:text-[#7C1D26] transition break-words">
-                        {cls.courseTitle}
-                      </h3>
-                      <p className="text-xs text-zinc-500 mt-0.5">
-                        {cls.units} Units • {cls.term}
-                      </p>
-                    </div>
 
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 ${
-                        summary.attendance.fdaStanding === "SAFE"
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 ${
+                          summary.attendance.fdaStanding === "SAFE"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : summary.attendance.fdaStanding === "WARNING"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-rose-50 text-rose-800 border-rose-200"
+                        }`}
+                      >
+                        {summary.attendance.fdaStanding === "SAFE"
+                          ? "Good Standing"
                           : summary.attendance.fdaStanding === "WARNING"
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-rose-50 text-rose-800 border-rose-200"
-                      }`}
-                    >
-                      {summary.attendance.fdaStanding === "SAFE"
-                        ? "Good Standing"
-                        : summary.attendance.fdaStanding === "WARNING"
-                        ? "Near Cut Limit"
-                        : "FDA Risk"}
-                    </span>
-                  </div>
+                          ? "Near Cut Limit"
+                          : "FDA Risk"}
+                      </span>
+                    </div>
 
-                  {/* Attendance & Grade Metrics Bar */}
-                  <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-zinc-50/80 border border-zinc-200/60 text-center">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-zinc-400">Attendance</p>
-                      <p className="text-sm font-bold font-mono text-zinc-950 mt-0.5">
-                        {summary.attendance.attendanceRate}%
-                      </p>
+                    {/* Attendance & Grade Metrics Bar */}
+                    <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-zinc-50/80 border border-zinc-200/60 text-center">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-zinc-400 truncate">
+                          Attendance
+                        </p>
+                        <p className="text-sm font-bold font-mono text-zinc-950 mt-0.5">
+                          {summary.attendance.attendanceRate}%
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-zinc-400 truncate">
+                          Current Standing
+                        </p>
+                        <p className="text-sm font-bold font-mono text-zinc-950 mt-0.5">
+                          {summary.grades.finalGrade !== null
+                            ? `${summary.grades.finalGrade}%`
+                            : "--"}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-zinc-400 truncate">
+                          PH University Mark
+                        </p>
+                        <p className="text-sm font-black font-mono text-[#7C1D26] mt-0.5">
+                          {summary.grades.letterGrade}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-zinc-400">Current Standing</p>
-                      <p className="text-sm font-bold font-mono text-zinc-950 mt-0.5">
-                        {summary.grades.finalGrade !== null ? `${summary.grades.finalGrade}%` : "--"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase text-zinc-400">PH University Mark</p>
-                      <p className="text-sm font-black font-mono text-[#7C1D26] mt-0.5">
-                        {summary.grades.letterGrade}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
-                    <span>{summary.attendance.effectiveAbsences} effective absences recorded</span>
-                    <span className="text-[#7C1D26] font-bold text-xs flex items-center gap-1">
-                      <span>Full Record</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                      <span className="truncate">
+                        {summary.attendance.effectiveAbsences} effective absences recorded
+                      </span>
+                      <span className="text-[#7C1D26] font-bold text-xs flex items-center gap-1 whitespace-nowrap">
+                        <span>Full Record</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -551,7 +740,8 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                 Weekly Class &amp; Subject Schedule
               </h2>
               <p className="text-xs text-zinc-500">
-                Plots all enrolled courses and manual external subjects. Click any enrolled subject block to open your personal class view.
+                Plots all enrolled courses and manual external subjects. Click any enrolled
+                subject block to open your personal class view.
               </p>
             </div>
 
@@ -564,67 +754,87 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
             </button>
           </div>
 
-          {/* Timetable Grid */}
-          <div
-            className="stagger-block grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            style={{ "--i": 3 } as React.CSSProperties}
-          >
-            {unifiedTimetable.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => {
-                  if (!item.isExternal && item.classId) {
-                    const found = enrolledClasses.find((c) => c.id === item.classId);
-                    if (found) setSelectedClassForDetail(found);
-                  }
-                }}
-                className={`p-5 rounded-2xl border transition space-y-3 ${
-                  item.isExternal
-                    ? "bg-emerald-50/40 border-emerald-200"
-                    : "bg-white border-zinc-200/80 hover:shadow-md hover:border-[#7C1D26]/40 cursor-pointer"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold font-mono text-[#7C1D26]">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{item.dayOfWeek}</span>
+          {isLoading ? (
+            loadingState
+          ) : unifiedTimetable.length === 0 ? (
+            <EmptyState
+              icon={<Calendar className="w-6 h-6" />}
+              title="Your timetable is empty"
+              description="Join a class to see its weekly schedule here. You can also add external subjects for courses outside the platform."
+              action={
+                <button
+                  type="button"
+                  onClick={() => setIsExternalModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#7C1D26] text-white text-xs font-semibold shadow-md shadow-[#7C1D26]/20 hover:bg-[#5E141B] transition cursor-pointer whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4 shrink-0" />
+                  <span>Add External Subject</span>
+                </button>
+              }
+            />
+          ) : (
+            <div
+              className="stagger-block grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              style={{ "--i": 3 } as React.CSSProperties}
+            >
+              {unifiedTimetable.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (!item.isExternal && item.classId) {
+                      const found = enrolledClasses.find((c) => c.id === item.classId);
+                      if (found) setSelectedClassForDetail(found);
+                    }
+                  }}
+                  className={`p-5 rounded-2xl border transition space-y-3 ${
+                    item.isExternal
+                      ? "bg-emerald-50/40 border-emerald-200"
+                      : "bg-white border-zinc-200/80 hover:shadow-md hover:border-[#7C1D26]/40 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold font-mono text-[#7C1D26] whitespace-nowrap">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <span>{item.dayOfWeek}</span>
+                    </div>
+                    {item.isExternal ? (
+                      <span className="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded whitespace-nowrap shrink-0">
+                        Manual External
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded whitespace-nowrap shrink-0">
+                        {item.code}
+                      </span>
+                    )}
                   </div>
-                  {item.isExternal ? (
-                    <span className="text-[10px] uppercase font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                      Manual External
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded">
-                      {item.code}
-                    </span>
+
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-zinc-950 truncate">{item.title}</h4>
+                    <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
+                      <span className="flex items-center gap-1 font-mono whitespace-nowrap">
+                        <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                        <span>
+                          {formatTime12Hour(item.startTime)} -{" "}
+                          {formatTime12Hour(item.endTime)}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold min-w-0">
+                        <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                        <span className="truncate">{item.room}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {!item.isExternal && (
+                    <p className="text-[10px] text-[#7C1D26] font-bold pt-2 border-t border-zinc-100 flex items-center gap-1">
+                      <span>Click to view personal records</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </p>
                   )}
                 </div>
-
-                <div>
-                  <h4 className="text-sm font-bold text-zinc-950">
-                    {item.title}
-                  </h4>
-                  <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
-                    <span className="flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>{item.startTime} - {item.endTime}</span>
-                    </span>
-                    <span className="flex items-center gap-1 font-semibold">
-                      <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>{item.room}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {!item.isExternal && (
-                  <p className="text-[10px] text-[#7C1D26] font-bold pt-2 border-t border-zinc-100 flex items-center gap-1">
-                    <span>Click to view personal records</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -633,36 +843,40 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
       {/* ======================================================= */}
       {activeTab === "requests" && (
         <div className="space-y-6">
-          <div
-            className="stagger-block"
-            style={{ "--i": 2 } as React.CSSProperties}
-          >
-            <div>
+          <div className="stagger-block" style={{ "--i": 2 } as React.CSSProperties}>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">
                 Class Join Applications &amp; Excuse Slip Resolutions
               </h2>
               <p className="text-xs text-zinc-500">
-                Track status of sent class requests and view instructor feedback or decline remarks.
+                Track status of sent class requests and view instructor feedback or decline
+                remarks.
               </p>
             </div>
           </div>
 
-          <div
-            className="stagger-block space-y-4"
-            style={{ "--i": 3 } as React.CSSProperties}
-          >
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-              Submitted Class Join Applications
-            </h3>
-            <div className="divide-y divide-zinc-100 bg-white rounded-2xl border border-zinc-200">
-              {joinRequests.length === 0 ? (
-                <p className="p-6 text-xs text-zinc-400 text-center">No pending or historical class requests.</p>
-              ) : (
-                joinRequests.map((req) => (
+          {isLoading ? (
+            loadingState
+          ) : joinRequests.length === 0 ? (
+            <EmptyState
+              icon={<KeyRound className="w-6 h-6" />}
+              title="No join applications yet"
+              description="Applications you send to join a class appear here with their approval status."
+            />
+          ) : (
+            <div
+              className="stagger-block space-y-4"
+              style={{ "--i": 3 } as React.CSSProperties}
+            >
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                Submitted Class Join Applications
+              </h3>
+              <div className="divide-y divide-zinc-100 bg-white rounded-2xl border border-zinc-200">
+                {joinRequests.map((req) => (
                   <div key={req.id} className="p-4 space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-zinc-900 whitespace-nowrap">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-mono font-bold text-xs text-zinc-900 truncate">
                           Class Application #{req.id}
                         </span>
                         <span
@@ -677,7 +891,9 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                           {req.status}
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono text-zinc-400">{req.submittedAt}</span>
+                      <span className="text-[11px] font-mono text-zinc-400 whitespace-nowrap">
+                        {formatRelativeTime(req.submittedAt)}
+                      </span>
                     </div>
 
                     {req.rejectionReason && (
@@ -687,10 +903,10 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
                       </div>
                     )}
                   </div>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -700,7 +916,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
           isOpen={true}
           onClose={() => setSelectedClassForDetail(null)}
           academicClass={selectedClassForDetail}
-          studentId={studentId}
+          studentId={rosterIdForClass(selectedClassForDetail.id)}
           studentName={studentName}
           studentNumber={studentNumber}
           attendanceRecords={attendanceRecords}

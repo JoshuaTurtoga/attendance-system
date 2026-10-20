@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useAuth } from "@/features/auth/auth-context";
 import type {
   AcademicClass,
   AttendanceRecord,
@@ -10,8 +11,8 @@ import type {
   SessionType,
   GradeItem,
   StudentGrade,
+  ClassSession,
 } from "@/types";
-import { DEFAULT_ROSTER, DEFAULT_EXCUSE_REQUESTS } from "@/lib/roster/mock-roster";
 import {
   generateScheduleDates,
   calculateEffectiveAbsencesWithSessions,
@@ -20,6 +21,14 @@ import {
 import { detectCrossModuleDiscrepancies } from "@/lib/sync/cross-module-sync";
 import { RapidRollCallOverlay } from "./rapid-roll-call-overlay";
 import { ExcuseSlipResolutionModal } from "./excuse-slip-resolution-modal";
+import { EmptyState } from "./empty-state";
+import {
+  saveAttendance,
+  upsertSession,
+  listAttendance,
+  listSessions,
+  listExcuses,
+} from "@/lib/data/attendance";
 import {
   CheckCircle2,
   Clock,
@@ -34,103 +43,82 @@ import {
   Plus,
   CalendarDays,
   X,
+  Users,
 } from "lucide-react";
 
 interface ClassAttendanceSheetProps {
   academicClass: AcademicClass;
   autoLaunchRollCall?: boolean;
-  sharedRecords?: AttendanceRecord[];
-  onRecordsChange?: (records: AttendanceRecord[]) => void;
-  sharedSessionDates?: string[];
-  onSessionDatesChange?: (dates: string[]) => void;
-  sharedSessionTypes?: Record<string, SessionType>;
-  onSessionTypesChange?: (types: Record<string, SessionType>) => void;
-  gradeItems?: GradeItem[];
-  studentGrades?: StudentGrade[];
+  sharedStudents: RosterStudent[];
+  sharedRecords: AttendanceRecord[];
+  onRecordsChange: (records: AttendanceRecord[]) => void;
+  sharedSessions: ClassSession[];
+  onSessionsChange: (sessions: ClassSession[]) => void;
+  sharedExcuseRequests: ExcuseRequest[];
+  onExcuseRequestsChange: (requests: ExcuseRequest[]) => void;
+  gradeItems: GradeItem[];
+  studentGrades: StudentGrade[];
 }
-
-const INITIAL_ATTENDANCE_RECORDS: AttendanceRecord[] = [
-  // Session 1: 2026-10-09
-  { id: "att_1", classId: "cls_01", studentId: "stud_01", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
-  { id: "att_2", classId: "cls_01", studentId: "stud_02", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
-  { id: "att_3", classId: "cls_01", studentId: "stud_03", date: "2026-10-09", status: "L", note: "Traffic along Commonwealth", createdAt: "2026-10-09T09:15:00Z" },
-  { id: "att_4", classId: "cls_01", studentId: "stud_04", date: "2026-10-09", status: "P", createdAt: "2026-10-09T09:00:00Z" },
-  { id: "att_5", classId: "cls_01", studentId: "stud_05", date: "2026-10-09", status: "A", note: "Hospitalization for acute viral infection", createdAt: "2026-10-09T09:00:00Z" },
-
-  // Session 2: 2026-10-14
-  { id: "att_6", classId: "cls_01", studentId: "stud_01", date: "2026-10-14", status: "P", createdAt: "2026-10-14T09:00:00Z" },
-  { id: "att_7", classId: "cls_01", studentId: "stud_02", date: "2026-10-14", status: "E", note: "University Debate Championship", createdAt: "2026-10-14T09:00:00Z" },
-  { id: "att_8", classId: "cls_01", studentId: "stud_03", date: "2026-10-14", status: "L", note: "Heavy rain commute", createdAt: "2026-10-14T09:20:00Z" },
-  { id: "att_9", classId: "cls_01", studentId: "stud_04", date: "2026-10-14", status: "L", note: "Transit breakdown", createdAt: "2026-10-14T09:20:00Z" },
-  { id: "att_10", classId: "cls_01", studentId: "stud_05", date: "2026-10-14", status: "A", note: "Absent without permit", createdAt: "2026-10-14T09:00:00Z" },
-];
-
-const INITIAL_SESSION_DATES = ["2026-10-09", "2026-10-14", "2026-10-16"];
-
-const INITIAL_SESSION_TYPES: Record<string, SessionType> = {
-  "2026-10-09": "regular",
-  "2026-10-14": "regular",
-  "2026-10-16": "regular",
-};
 
 export function ClassAttendanceSheet({
   academicClass,
   autoLaunchRollCall = false,
+  sharedStudents,
   sharedRecords,
   onRecordsChange,
-  sharedSessionDates,
-  onSessionDatesChange,
-  sharedSessionTypes,
-  onSessionTypesChange,
+  sharedSessions,
+  onSessionsChange,
+  sharedExcuseRequests,
+  onExcuseRequestsChange,
   gradeItems,
   studentGrades,
 }: ClassAttendanceSheetProps) {
-  const [students] = useState<RosterStudent[]>(DEFAULT_ROSTER);
-  const [internalRecords, setInternalRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
-  const [internalSessionDates, setInternalSessionDates] = useState<string[]>(INITIAL_SESSION_DATES);
-  const [internalSessionTypes, setInternalSessionTypes] = useState<Record<string, SessionType>>(INITIAL_SESSION_TYPES);
-
-  const records = sharedRecords || internalRecords;
-  const setRecords = (updater: AttendanceRecord[] | ((prev: AttendanceRecord[]) => AttendanceRecord[])) => {
-    const next = typeof updater === "function" ? updater(records) : updater;
-    setInternalRecords(next);
-    if (onRecordsChange) onRecordsChange(next);
-  };
-
-  const sessionDates = sharedSessionDates || internalSessionDates;
-  const setSessionDates = (updater: string[] | ((prev: string[]) => string[])) => {
-    const next = typeof updater === "function" ? updater(sessionDates) : updater;
-    setInternalSessionDates(next);
-    if (onSessionDatesChange) onSessionDatesChange(next);
-  };
-
-  const sessionTypes = sharedSessionTypes || internalSessionTypes;
-  const setSessionTypes = (updater: Record<string, SessionType> | ((prev: Record<string, SessionType>) => Record<string, SessionType>)) => {
-    const next = typeof updater === "function" ? updater(sessionTypes) : updater;
-    setInternalSessionTypes(next);
-    if (onSessionTypesChange) onSessionTypesChange(next);
-  };
-
-  const [selectedDate, setSelectedDate] = useState<string>("2026-10-16");
+  const { supabase } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${today.getFullYear()}-${month}-${day}`;
+  });
   const [isRollCallOpen, setIsRollCallOpen] = useState(autoLaunchRollCall);
   const [searchQuery, setSearchQuery] = useState("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const sessionDates = sharedSessions.map((s) => s.date).sort();
+  const sessionTypes = sharedSessions.reduce((acc, s) => {
+    acc[s.date] = s.type;
+    return acc;
+  }, {} as Record<string, SessionType>);
+
+  const refreshAttendance = async () => {
+    if (!supabase) return;
+    try {
+      const [newRecords, newSessions, newExcuses] = await Promise.all([
+        listAttendance(supabase, academicClass.id),
+        listSessions(supabase, academicClass.id),
+        listExcuses(supabase, academicClass.id),
+      ]);
+      onRecordsChange(newRecords);
+      onSessionsChange(newSessions);
+      onExcuseRequestsChange(newExcuses);
+    } catch (err) {
+      console.error("Failed to refresh attendance data", err);
+    }
+  };
 
   // Cross-module discrepancy checking for selected session date
-  const discrepanciesForDate = gradeItems && studentGrades ? detectCrossModuleDiscrepancies({
+  const discrepanciesForDate = detectCrossModuleDiscrepancies({
     date: selectedDate,
-    students,
-    attendanceRecords: records,
+    students: sharedStudents,
+    attendanceRecords: sharedRecords,
     gradeItems,
     studentGrades,
-  }) : [];
-
-  // Excuse Slips Queue State
-  const [excuseRequests, setExcuseRequests] = useState<ExcuseRequest[]>(DEFAULT_EXCUSE_REQUESTS);
-  const [isExcuseModalOpen, setIsExcuseModalOpen] = useState(false);
+  });
 
   // Add Custom Make-up Date Modal State
   const [isAddDateModalOpen, setIsAddDateModalOpen] = useState(false);
+  const [isExcuseModalOpen, setIsExcuseModalOpen] = useState(false);
   const [newCustomDate, setNewCustomDate] = useState("");
   const [newCustomType, setNewCustomType] = useState<SessionType>("makeup");
 
@@ -138,7 +126,7 @@ export function ClassAttendanceSheet({
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
 
   // Alphabetically sorted students
-  const sortedStudents = [...students].sort((a, b) => {
+  const sortedStudents = [...sharedStudents].sort((a, b) => {
     const lastNameDiff = a.lastName.localeCompare(b.lastName);
     if (lastNameDiff !== 0) return lastNameDiff;
     return a.firstName.localeCompare(b.firstName);
@@ -149,31 +137,44 @@ export function ClassAttendanceSheet({
     return full.includes(searchQuery.toLowerCase());
   });
 
-  const pendingExcuseCount = excuseRequests.filter((r) => r.status === "pending").length;
+  const pendingExcuseCount = sharedExcuseRequests.filter((r) => r.status === "pending").length;
 
   // Active date session type
   const activeSessionType = sessionTypes[selectedDate] || "regular";
 
   // Handle saving attendance from Rapid Roll-Call
-  const handleSaveRollCall = (newRecords: AttendanceRecord[]) => {
-    setRecords((prev) => {
-      const filtered = prev.filter(
-        (r) => !(r.classId === academicClass.id && r.date === selectedDate)
-      );
-      return [...filtered, ...newRecords];
-    });
-
-    if (!sessionDates.includes(selectedDate)) {
-      setSessionDates((prev) => [...prev, selectedDate].sort());
+  const handleSaveRollCall = async (newRecords: AttendanceRecord[]) => {
+    if (!supabase || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await Promise.all([
+        saveAttendance(
+          supabase,
+          academicClass.id,
+          newRecords.map((r) => ({
+            studentId: r.studentId,
+            date: selectedDate,
+            status: r.status,
+            note: r.note,
+          }))
+        ),
+        upsertSession(supabase, academicClass.id, selectedDate, activeSessionType),
+      ]);
+      await refreshAttendance();
+      setSaveSuccessMsg(`Roll-call committed successfully for ${selectedDate} (${newRecords.length} records).`);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save roll-call");
+    } finally {
+      setIsProcessing(false);
     }
-
-    setSaveSuccessMsg(`Roll-call committed successfully for ${selectedDate} (${newRecords.length} records).`);
-    setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
 
   // Toggle single student status on cell click
-  const handleCellToggle = (studentId: string, date: string) => {
-    const existing = records.find(
+  const handleCellToggle = async (studentId: string, date: string) => {
+    if (!supabase || isProcessing) return;
+
+    const existing = sharedRecords.find(
       (r) => r.studentId === studentId && r.date === date && r.classId === academicClass.id
     );
 
@@ -186,56 +187,66 @@ export function ClassAttendanceSheet({
 
     const newStatus: AttendanceStatus = existing ? nextStatus[existing.status] || "P" : "P";
 
-    setRecords((prev) => {
-      const remaining = prev.filter(
-        (r) => !(r.studentId === studentId && r.date === date && r.classId === academicClass.id)
-      );
-      return [
-        ...remaining,
+    setIsProcessing(true);
+    try {
+      await saveAttendance(supabase, academicClass.id, [
         {
-          id: `att_${academicClass.id}_${studentId}_${date}`,
-          classId: academicClass.id,
           studentId,
           date,
           status: newStatus,
-          documentUrl: existing?.documentUrl,
           note: existing?.note,
-          createdAt: new Date().toISOString(),
         },
-      ];
-    });
+      ]);
+      // Ensure session exists
+      if (!sessionTypes[date]) {
+        await upsertSession(supabase, academicClass.id, date, "regular");
+      }
+      await refreshAttendance();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to toggle status");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Switch session type classification for selected date
-  const handleSetSessionType = (type: SessionType) => {
-    setSessionTypes((prev) => ({
-      ...prev,
-      [selectedDate]: type,
-    }));
+  const handleSetSessionType = async (type: SessionType) => {
+    if (!supabase || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await upsertSession(supabase, academicClass.id, selectedDate, type);
+      await refreshAttendance();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update session type");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Add custom date (e.g. make-up class or institutional date)
-  const handleAddCustomDate = () => {
-    if (!newCustomDate) return;
+  const handleAddCustomDate = async () => {
+    if (!newCustomDate || !supabase || isProcessing) return;
 
-    if (!sessionDates.includes(newCustomDate)) {
-      setSessionDates((prev) => [...prev, newCustomDate].sort());
+    setIsProcessing(true);
+    try {
+      await upsertSession(supabase, academicClass.id, newCustomDate, newCustomType);
+      await refreshAttendance();
+      setSelectedDate(newCustomDate);
+      setIsAddDateModalOpen(false);
+      setNewCustomDate("");
+      setSaveSuccessMsg(`Session date ${newCustomDate} (${newCustomType}) added.`);
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to add date");
+    } finally {
+      setIsProcessing(false);
     }
-
-    setSessionTypes((prev) => ({
-      ...prev,
-      [newCustomDate]: newCustomType,
-    }));
-
-    setSelectedDate(newCustomDate);
-    setIsAddDateModalOpen(false);
-    setNewCustomDate("");
-    setSaveSuccessMsg(`Session date ${newCustomDate} (${newCustomType}) added.`);
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
   // Auto-generate semester dates from class schedule
-  const handleGenerateSemesterDates = () => {
+  const handleGenerateSemesterDates = async () => {
+    if (!supabase || isProcessing) return;
+    
     // Generate dates for current semester range: 2026-10-01 to 2026-11-15
     const generated = generateScheduleDates(
       academicClass.schedule,
@@ -243,38 +254,23 @@ export function ClassAttendanceSheet({
       "2026-11-15"
     );
 
-    const combined = Array.from(new Set([...sessionDates, ...generated])).sort();
-    setSessionDates(combined);
-
-    setSessionTypes((prev) => {
-      const updated = { ...prev };
-      for (const d of generated) {
-        if (!updated[d]) updated[d] = "regular";
-      }
-      return updated;
-    });
-
-    setSaveSuccessMsg(`Generated ${generated.length} class session dates for semester.`);
-    setTimeout(() => setSaveSuccessMsg(null), 3500);
-  };
-
-  // Update record after excuse approval
-  const handleUpdateRecordFromExcuse = (updatedRecord: AttendanceRecord) => {
-    setRecords((prev) => {
-      const remaining = prev.filter(
-        (r) =>
-          !(
-            r.classId === updatedRecord.classId &&
-            r.studentId === updatedRecord.studentId &&
-            r.date === updatedRecord.date
-          )
+    setIsProcessing(true);
+    try {
+      await Promise.all(
+        generated.map((d) => upsertSession(supabase, academicClass.id, d, "regular"))
       );
-      return [...remaining, updatedRecord];
-    });
+      await refreshAttendance();
+      setSaveSuccessMsg(`Generated ${generated.length} class session dates for semester.`);
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to generate dates");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Compute stats for selected date
-  const recordsForDate = records.filter(
+  const recordsForDate = sharedRecords.filter(
     (r) => r.classId === academicClass.id && r.date === selectedDate
   );
   const presentCount = recordsForDate.filter((r) => r.status === "P").length;
@@ -367,6 +363,9 @@ export function ClassAttendanceSheet({
             onChange={(e) => setSelectedDate(e.target.value)}
             className="px-3 py-1.5 rounded-xl border border-zinc-200 text-xs font-mono font-bold text-zinc-800 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#7C1D26] cursor-pointer"
           >
+            {sessionDates.length === 0 && (
+              <option value={selectedDate}>{selectedDate} (No sessions)</option>
+            )}
             {sessionDates.map((d) => (
               <option key={d} value={d}>
                 {d} {d === "2026-10-16" ? "(Today)" : ""} - ({sessionTypes[d] || "regular"})
@@ -468,7 +467,7 @@ export function ClassAttendanceSheet({
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-2xl bg-white border border-zinc-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-zinc-400">Class Enrolled</span>
-          <p className="text-xl font-bold text-zinc-900 mt-0.5">{students.length} Students</p>
+          <p className="text-xl font-bold text-zinc-900 mt-0.5">{sharedStudents.length} Students</p>
         </div>
         <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-xs">
           <div className="flex items-center justify-between">
@@ -555,10 +554,39 @@ export function ClassAttendanceSheet({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filteredStudents.map((student, idx) => {
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={sessionDates.length + 6} className="py-12 px-4">
+                    <EmptyState
+                      icon={<Users className="w-6 h-6" />}
+                      title="No students on roster"
+                      description="Populate your class roster first to start recording attendance."
+                    />
+                  </td>
+                </tr>
+              ) : sessionDates.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 px-4">
+                    <EmptyState
+                      icon={<Calendar className="w-6 h-6" />}
+                      title="No session dates generated"
+                      description="You need to generate or add class session dates before you can record attendance."
+                      action={
+                        <button
+                          onClick={handleGenerateSemesterDates}
+                          className="px-4 py-2 rounded-xl bg-[#7C1D26] text-white text-xs font-semibold hover:bg-[#5E141B] transition cursor-pointer"
+                        >
+                          Generate Semester Dates
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
+              ) : (
+                filteredStudents.map((student, idx) => {
                 // Collect attendance records with session types for accurate FDA calculation
                 const studentRecords = sessionDates.map((date) => {
-                  const rec = records.find(
+                  const rec = sharedRecords.find(
                     (r) =>
                       r.studentId === student.id &&
                       r.date === date &&
@@ -627,7 +655,7 @@ export function ClassAttendanceSheet({
 
                     {/* Dynamic Date Session Cells */}
                     {sessionDates.map((date) => {
-                      const rec = records.find(
+                      const rec = sharedRecords.find(
                         (r) =>
                           r.studentId === student.id &&
                           r.date === date &&
@@ -723,7 +751,8 @@ export function ClassAttendanceSheet({
                     </td>
                   </tr>
                 );
-              })}
+              })
+            )}
             </tbody>
           </table>
         </div>
@@ -736,7 +765,7 @@ export function ClassAttendanceSheet({
           isOpen={isRollCallOpen}
           onClose={() => setIsRollCallOpen(false)}
           onSave={handleSaveRollCall}
-          students={students}
+          students={sharedStudents}
           classId={academicClass.id}
           courseCode={academicClass.courseCode}
           section={academicClass.section}
@@ -748,10 +777,10 @@ export function ClassAttendanceSheet({
       <ExcuseSlipResolutionModal
         isOpen={isExcuseModalOpen}
         onClose={() => setIsExcuseModalOpen(false)}
-        requests={excuseRequests}
-        attendanceRecords={records}
-        onUpdateRecord={handleUpdateRecordFromExcuse}
-        onUpdateRequests={setExcuseRequests}
+        classId={academicClass.id}
+        requests={sharedExcuseRequests}
+        attendanceRecords={sharedRecords}
+        onRefresh={refreshAttendance}
       />
 
       {/* Add Custom Make-up / Session Date Modal */}

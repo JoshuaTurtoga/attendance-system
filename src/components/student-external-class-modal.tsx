@@ -18,10 +18,10 @@ export function StudentExternalClassModal({
   const [title, setTitle] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState<
     "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday"
-  >("Tuesday");
-  const [startTime, setStartTime] = useState("13:00");
-  const [endTime, setEndTime] = useState("14:30");
-  const [room, setRoom] = useState("Room 201");
+  >("Monday");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [room, setRoom] = useState("");
   const [color, setColor] = useState("#059669");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -31,6 +31,10 @@ export function StudentExternalClassModal({
     e.preventDefault();
     if (!title.trim()) {
       setErrorMsg("Subject title is required.");
+      return;
+    }
+    if (!startTime || !endTime) {
+      setErrorMsg("Start and end times are required.");
       return;
     }
     if (startTime >= endTime) {

@@ -26,7 +26,7 @@ const mockUsers: UserProfile[] = [
     email: "joshua.aquino@university.edu",
     firstName: "Joshua",
     lastName: "Aquino",
-    roles: ["instructor", "admin"],
+    roles: ["instructor"],
     activeView: "instructor",
     department: "Computer Science",
     createdAt: "2026-01-05",

@@ -2,14 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useAuth, DEMO_USERS } from "@/features/auth/auth-context";
+import { useAuth } from "@/features/auth/auth-context";
 import {
   GraduationCap,
-  ShieldCheck,
-  User,
-  ChevronDown,
-  ArrowLeftRight,
   BookOpen,
+  User,
   Calendar,
   Clock,
   LayoutGrid,
@@ -100,16 +97,10 @@ export function Sidebar({
   const {
     currentUser,
     activeView,
-    availableViews,
-    isDualRole,
-    switchView,
-    selectPersona,
-    activePersonaKey,
     signOut,
   } = useAuth();
 
   const [internalIndex, setInternalIndex] = useState(defaultActiveIndex);
-  const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Default dynamic tabs corresponding to the active role
@@ -236,44 +227,17 @@ export function Sidebar({
               </div>
             </div>
 
-            {/* POV Toggle Switcher (for Dual-Role Users) or Single-Role Badge */}
-            {isDualRole ? (
-              <div className="p-1 rounded-xl bg-zinc-200/80 border border-zinc-300/60 flex items-center shadow-inner">
-                {availableViews.map((view) => {
-                  const isActive = activeView === view;
-                  return (
-                    <button
-                      key={view}
-                      type="button"
-                      onClick={() => switchView(view)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                        isActive
-                          ? "bg-white text-[#7C1D26] shadow-xs"
-                          : "text-zinc-600 hover:text-zinc-900"
-                      }`}
-                    >
-                      {view === "admin" ? (
-                        <ShieldCheck className="w-3.5 h-3.5 text-[#7C1D26]" />
-                      ) : (
-                        <BookOpen className="w-3.5 h-3.5 text-[#7C1D26]" />
-                      )}
-                      <span>{getRoleLabel(view)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-semibold ${getRoleBadgeStyle(
-                    activeView
-                  )}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                  {getRoleLabel(activeView)}
-                </span>
-              </div>
-            )}
+            {/* Role Badge */}
+            <div className="flex items-center">
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-semibold ${getRoleBadgeStyle(
+                  activeView
+                )}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                {getRoleLabel(activeView)}
+              </span>
+            </div>
           </div>
         )}
 
@@ -358,114 +322,33 @@ export function Sidebar({
         </nav>
       </div>
 
-      {/* Footer / User Profile Card & Persona Switcher */}
+      {/* Footer / User Profile Card */}
       {footer ? (
         <div className="mt-auto pt-4 pr-4">{footer}</div>
       ) : (
-        <div className="mt-auto pt-6 pr-4 border-t border-zinc-200/70 relative">
-          {/* Persona Switcher Menu Popover */}
-          {personaMenuOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-zinc-950/20 backdrop-blur-xs"
-                onClick={() => setPersonaMenuOpen(false)}
-              />
-              <div className="absolute left-0 bottom-full mb-3 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white border border-zinc-200/90 shadow-2xl p-2.5 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-2 border-b border-zinc-100">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    Switch Test Persona
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    Test different academic privileges
-                  </p>
-                </div>
-                <div className="space-y-1 mt-1 max-h-72 overflow-y-auto">
-                  {Object.entries(DEMO_USERS).map(([key, persona]) => {
-                    const isSelected = activePersonaKey === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                          selectPersona(key as keyof typeof DEMO_USERS);
-                          setPersonaMenuOpen(false);
-                        }}
-                        className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition cursor-pointer ${
-                          isSelected
-                            ? "bg-[#7C1D26]/5 border border-[#7C1D26]/20"
-                            : "hover:bg-zinc-50 border border-transparent"
-                        }`}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 font-bold text-xs border border-zinc-300/60">
-                          {persona.firstName[0]}
-                          {persona.lastName[0]}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-zinc-900 truncate">
-                            {persona.firstName} {persona.lastName}
-                          </p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {persona.roles.map((r) => (
-                              <span
-                                key={r}
-                                className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${getRoleBadgeStyle(
-                                  r
-                                )}`}
-                              >
-                                {r}
-                              </span>
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                            {persona.department || persona.studentNumber}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* User Profile Trigger Button */}
+        <div className="mt-auto pt-6 pr-4 border-t border-zinc-200/70">
           <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setPersonaMenuOpen(!personaMenuOpen)}
-              className="w-full flex items-center justify-between p-2 rounded-2xl bg-white border border-zinc-200/80 shadow-xs hover:border-zinc-300 transition text-left cursor-pointer group"
-              title="Click to switch persona"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#7C1D26]/10 border border-[#7C1D26]/20 flex items-center justify-center text-[#7C1D26] font-bold text-xs shrink-0">
-                  <User className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-zinc-900 truncate">
-                    {currentUser.firstName} {currentUser.lastName}
-                  </p>
-                  <p className="text-[10px] text-zinc-500 truncate">
-                    {currentUser.department || currentUser.studentNumber}
-                  </p>
-                </div>
+            <div className="w-full flex items-center gap-2.5 p-2 rounded-2xl bg-white border border-zinc-200/80 shadow-xs text-left">
+              <div className="w-8 h-8 rounded-full bg-[#7C1D26]/10 border border-[#7C1D26]/20 flex items-center justify-center text-[#7C1D26] font-bold text-xs shrink-0">
+                <User className="w-4 h-4" />
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-600 shrink-0 ml-1" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPersonaMenuOpen(true)}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-zinc-600 bg-zinc-200/60 hover:bg-zinc-200/90 transition cursor-pointer border border-zinc-300/50"
-            >
-              <ArrowLeftRight className="w-3 h-3 text-zinc-500" />
-              <span>Switch Demo Persona</span>
-            </button>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-zinc-900 truncate">
+                  {currentUser
+                    ? `${currentUser.firstName} ${currentUser.lastName}`
+                    : "Signed in"}
+                </p>
+                <p className="text-[10px] text-zinc-500 truncate">
+                  {currentUser?.department || currentUser?.studentNumber || ""}
+                </p>
+              </div>
+            </div>
 
             <button
               type="button"
               onClick={() => {
                 setMobileDrawerOpen(false);
-                signOut();
+                void signOut();
               }}
               className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-[#7C1D26] bg-rose-50 hover:bg-rose-100 transition cursor-pointer border border-[#7C1D26]/20 whitespace-nowrap"
             >
