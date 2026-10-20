@@ -171,3 +171,28 @@ export function maskEmail(email: string): string {
   const visible = local.slice(0, 2);
   return `${visible}${"*".repeat(Math.max(1, local.length - 2))}@${domain}`;
 }
+
+/** Translates raw Supabase/database auth error strings into student/faculty friendly copy. */
+export function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (m.includes("email not confirmed")) {
+    return "Please confirm your university email before signing in.";
+  }
+  if (
+    m.includes("already registered") ||
+    m.includes("already been registered") ||
+    m.includes("user already exists") ||
+    (m.includes("user") && m.includes("already exists")) ||
+    m.includes("email already exists") ||
+    m.includes("email already in use") ||
+    m.includes("unique constraint") ||
+    m.includes("profiles_email_key")
+  ) {
+    return "An account with this university email already exists. Please sign in or reset your password.";
+  }
+  return message;
+}
+

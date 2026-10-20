@@ -16,6 +16,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   fetchProfile,
   setActiveView as persistActiveView,
+  checkEmailRegistered,
 } from "@/lib/data/profiles";
 import {
   isUniversityEmail,
@@ -23,6 +24,7 @@ import {
   universityEmailErrorMessage,
   validateEmail,
   validatePassword,
+  friendlyAuthError,
   type AuthScreen,
 } from "@/lib/auth/auth-engine";
 
@@ -49,6 +51,7 @@ interface AuthContextType {
   activeView: Role;
   availableViews: Role[];
   isAuthenticated: boolean;
+  checkEmailAvailability: (email: string) => Promise<boolean>;
 
   authScreen: AuthScreen;
   authNotice: string | null;
@@ -71,20 +74,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/** Translates raw Supabase auth errors into student/faculty friendly copy. */
-function friendlyAuthError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login credentials")) {
-    return "Incorrect email or password. Please try again.";
-  }
-  if (m.includes("email not confirmed")) {
-    return "Please confirm your university email before signing in.";
-  }
-  if (m.includes("already registered") || m.includes("already been registered")) {
-    return "An account with this email already exists.";
-  }
-  return message;
-}
+
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
@@ -217,6 +207,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthScreen("landing");
   };
 
+  const checkEmailAvailability = useCallback(
+    async (email: string): Promise<boolean> => {
+      if (!supabase) return true;
+      if (!validateEmail(email) || !isUniversityEmail(email)) return true;
+      try {
+        const isRegistered = await checkEmailRegistered(supabase, email);
+        return !isRegistered;
+      } catch {
+        return true;
+      }
+    },
+    [supabase]
+  );
+
   const registerStudent = async (
     input: StudentRegistrationInput
   ): Promise<AuthResult> => {
@@ -234,8 +238,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { ok: false, error: passwordCheck.message };
     }
 
+    const emailNorm = normalizeEmail(input.email);
+
+    // Fast pre-check: prevent registration if the email already exists in profiles
+    try {
+      const isRegistered = await checkEmailRegistered(supabase, emailNorm);
+      if (isRegistered) {
+        return {
+          ok: false,
+          error: "An account with this university email already exists. Please sign in or reset your password.",
+        };
+      }
+    } catch {
+      // Continue to Supabase Auth which will enforce uniqueness
+    }
+
     const { data, error } = await supabase.auth.signUp({
-      email: normalizeEmail(input.email),
+      email: emailNorm,
       password: input.password,
       options: {
         data: {
@@ -251,6 +270,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) {
       return { ok: false, error: friendlyAuthError(error.message) };
+    }
+
+    // Supabase Auth returns an empty identities array when a user with that email already exists
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      return {
+        ok: false,
+        error: "An account with this university email already exists. Please sign in or reset your password.",
+      };
     }
 
     if (!data.session) {
@@ -380,6 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         activeView,
         availableViews,
         isAuthenticated,
+        checkEmailAvailability,
         authScreen,
         authNotice,
         goToScreen,

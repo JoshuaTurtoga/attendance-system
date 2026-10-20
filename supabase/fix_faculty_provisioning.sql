@@ -33,6 +33,13 @@ begin
     v_role := 'student';
   end if;
 
+  -- Validate that this email is not already claimed by another user profile
+  if exists (select 1 from public.profiles where lower(email) = v_email and id <> new.id) then
+    raise exception
+      'An account with the email % is already registered.',
+      v_email using errcode = 'unique_violation';
+  end if;
+
   insert into public.profiles (
     id, email, first_name, middle_name, last_name,
     roles, active_view, department, student_number, avatar_url, must_reset_password
@@ -125,4 +132,19 @@ create policy classes_delete on public.classes
         and coalesce(p.is_suspended, false) = false
     )
   );
+
+-- 5. Fast, lightweight email availability check for registration (safe for anon)
+create index if not exists idx_profiles_lower_email on public.profiles (lower(email));
+
+create or replace function public.check_email_exists(p_email text)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.profiles
+    where lower(email) = lower(trim(p_email))
+  );
+$$;
+
+grant execute on function public.check_email_exists(text) to anon, authenticated, service_role;
+
 

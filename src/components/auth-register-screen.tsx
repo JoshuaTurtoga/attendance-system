@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth/auth-context";
 import { AuthShell, AuthField, AuthErrorBanner } from "./auth-shell";
 import {
@@ -19,10 +19,11 @@ import {
   Building2,
   ArrowRight,
   ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 
 export function AuthRegisterScreen() {
-  const { registerStudent, goToScreen } = useAuth();
+  const { registerStudent, checkEmailAvailability, goToScreen } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -33,7 +34,37 @@ export function AuthRegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [emailConflict, setEmailConflict] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Debounced email availability check (only triggers if valid university domain to minimize DB load)
+  useEffect(() => {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !isUniversityEmail(clean)) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const isAvailable = await checkEmailAvailability(clean);
+      if (!cancelled) {
+        setEmailConflict(!isAvailable);
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [email, checkEmailAvailability]);
+
+  const handleEmailBlur = async () => {
+    const clean = email.trim().toLowerCase();
+    if (clean && isUniversityEmail(clean)) {
+      const isAvailable = await checkEmailAvailability(clean);
+      setEmailConflict(!isAvailable);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +82,23 @@ export function AuthRegisterScreen() {
       return;
     }
 
+    if (emailConflict) {
+      setError("This university email is already registered. Please sign in or reset your password.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
+
+    // Fast final availability check before submitting
+    const isAvailable = await checkEmailAvailability(email.trim());
+    if (!isAvailable) {
+      setEmailConflict(true);
+      setError("This university email is already registered. Please sign in or reset your password.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const result = await registerStudent({
       firstName,
       middleName,
@@ -64,6 +110,9 @@ export function AuthRegisterScreen() {
     });
     if (!result.ok) {
       setError(result.error ?? "Unable to create your account.");
+      if (result.error?.toLowerCase().includes("already exists") || result.error?.toLowerCase().includes("already registered")) {
+        setEmailConflict(true);
+      }
       setIsSubmitting(false);
     }
   };
@@ -124,17 +173,45 @@ export function AuthRegisterScreen() {
           required
         />
 
-        <AuthField
-          label="University Email"
-          type="email"
-          autoComplete="email"
-          placeholder={`you@${UNIVERSITY_EMAIL_DOMAIN}`}
-          hint={`Must end with @${UNIVERSITY_EMAIL_DOMAIN}`}
-          icon={<Mail className="w-4 h-4" />}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        <div className="space-y-2">
+          <AuthField
+            label="University Email"
+            type="email"
+            autoComplete="email"
+            placeholder={`you@${UNIVERSITY_EMAIL_DOMAIN}`}
+            hint={`Must end with @${UNIVERSITY_EMAIL_DOMAIN}`}
+            icon={<Mail className="w-4 h-4" />}
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (emailConflict) setEmailConflict(false);
+            }}
+            onBlur={handleEmailBlur}
+            className={emailConflict ? "!border-amber-400 !focus:ring-amber-500 bg-amber-50/20" : ""}
+            required
+          />
+
+          {emailConflict && (
+            <div className="flex items-start justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs animate-in fade-in">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="font-bold">Email already registered</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                    An account with this university email already exists in the system. You can sign in directly or recover your account password.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => goToScreen("login")}
+                className="px-3 py-1.5 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-bold shrink-0 transition cursor-pointer shadow-xs whitespace-nowrap self-center"
+              >
+                Sign In &rarr;
+              </button>
+            </div>
+          )}
+        </div>
 
         <label className="block">
           <span className="block text-xs font-semibold text-zinc-700 mb-1.5 whitespace-nowrap">

@@ -102,3 +102,59 @@ export async function setSuspension(
     .eq("id", userId);
   if (error) throw error;
 }
+
+/** In-memory cache to prevent repeated database hits for the same email address in a session. */
+const emailCheckCache = new Map<string, boolean>();
+
+/** Clear the email registration cache (useful in tests). */
+export function clearEmailCheckCache(): void {
+  emailCheckCache.clear();
+}
+
+/**
+ * Checks whether an email address is already registered in the system.
+ * Highly optimized for minimal database load:
+ * 1. Checks in-memory cache first (0 database load for repeated lookups).
+ * 2. Uses a lightweight, index-only RPC function `check_email_exists` returning a single boolean.
+ * 3. Falls back to an indexed single-row projection if RPC is unavailable.
+ */
+export async function checkEmailRegistered(
+  client: SupabaseClient,
+  email: string
+): Promise<boolean> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) return false;
+
+  // 1. Check in-memory session cache
+  if (emailCheckCache.has(cleanEmail)) {
+    return emailCheckCache.get(cleanEmail)!;
+  }
+
+  // 2. Query lightweight RPC (security definer, index-only scan, single boolean)
+  try {
+    const { data, error } = await client.rpc("check_email_exists", {
+      p_email: cleanEmail,
+    });
+    if (!error && typeof data === "boolean") {
+      emailCheckCache.set(cleanEmail, data);
+      return data;
+    }
+  } catch {
+    // Fall back to direct query if RPC is not present
+  }
+
+  // 3. Fallback query (single indexed row ID check)
+  try {
+    const { data } = await client
+      .from("profiles")
+      .select("id")
+      .eq("email", cleanEmail)
+      .limit(1);
+    const exists = Boolean(data && data.length > 0);
+    emailCheckCache.set(cleanEmail, exists);
+    return exists;
+  } catch {
+    return false;
+  }
+}
+

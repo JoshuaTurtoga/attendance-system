@@ -248,6 +248,21 @@ language sql stable security definer set search_path = public as $$
   select coalesce((select 'admin' = any(roles) from public.profiles where id = auth.uid()), false);
 $$;
 
+-- Fast index for instant lower-cased email lookups
+create index if not exists idx_profiles_lower_email on public.profiles (lower(email));
+
+-- Lightweight, optimized email availability check for registration (safe for anon callers)
+create or replace function public.check_email_exists(p_email text)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.profiles
+    where lower(email) = lower(trim(p_email))
+  );
+$$;
+
+grant execute on function public.check_email_exists(text) to anon, authenticated, service_role;
+
 create or replace function public.is_class_instructor(p_class_id uuid)
 returns boolean
 language sql stable security definer set search_path = public as $$
@@ -333,6 +348,13 @@ begin
   -- Validate role against enum values
   if v_role not in ('admin', 'instructor', 'student') then
     v_role := 'student';
+  end if;
+
+  -- Validate that this email is not already claimed by another user profile
+  if exists (select 1 from public.profiles where lower(email) = v_email and id <> new.id) then
+    raise exception
+      'An account with the email % is already registered.',
+      v_email using errcode = 'unique_violation';
   end if;
 
   insert into public.profiles (
