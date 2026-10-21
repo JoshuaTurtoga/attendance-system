@@ -307,24 +307,6 @@ export function PortalShell({ children }: PortalShellProps) {
     closeClass,
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#FAFAFA]">
-        <div className="w-12 h-12 rounded-2xl bg-[#7C1D26] text-white flex items-center justify-center shadow-md shadow-[#7C1D26]/20">
-          <GraduationCap className="w-6 h-6 stroke-[2.2]" />
-        </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
-          <span className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
-          Restoring your session…
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <PortalContext.Provider value={contextValue}>
       <div className="min-h-screen flex flex-col md:flex-row bg-[#EAEAEF]">
@@ -344,37 +326,51 @@ export function PortalShell({ children }: PortalShellProps) {
           )}
 
           <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
-            <StaggeredView transitionKey={transitionKey} blockCount={5}>
-              {children ? (
-                children
-              ) : isWorkspaceOpen && resolvedClass ? (
-                <ClassWorkspace
-                  academicClass={resolvedClass}
-                  activeTab={currentTabId as WorkspaceTab}
-                  autoLaunchRollCall={autoLaunchRollCall}
-                  autoLaunchGradingToday={autoLaunchGradingToday}
-                />
-              ) : (
-                <>
-                  {activeView === "instructor" && (
-                    <InstructorHub
-                      activeTab={currentTabId as InstructorViewTab}
-                      classes={classes}
-                      isLoading={isLoadingClasses}
-                      errorMessage={classesError}
-                      onCreateClass={handleCreateClass}
-                      onOpenClass={openClass}
-                    />
-                  )}
-                  {activeView === "admin" && (
-                    <AdminHub activeTab={currentTabId as AdminTab} />
-                  )}
-                  {activeView === "student" && (
-                    <StudentHub activeTab={currentTabId as StudentTab} />
-                  )}
-                </>
-              )}
-            </StaggeredView>
+            {isLoading ? (
+              <div className="min-h-[400px] w-full flex flex-col items-center justify-center gap-4 bg-transparent">
+                <div className="w-12 h-12 rounded-2xl bg-[#7C1D26] text-white flex items-center justify-center shadow-md shadow-[#7C1D26]/20">
+                  <GraduationCap className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
+                  <span className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300 border-t-[#7C1D26] animate-spin" />
+                  Restoring your session…
+                </div>
+              </div>
+            ) : null}
+
+            <div className={isLoading || !isAuthenticated ? "hidden" : undefined}>
+              <StaggeredView transitionKey={transitionKey} blockCount={5}>
+                {children ? (
+                  children
+                ) : isWorkspaceOpen && resolvedClass ? (
+                  <ClassWorkspace
+                    academicClass={resolvedClass}
+                    activeTab={currentTabId as WorkspaceTab}
+                    autoLaunchRollCall={autoLaunchRollCall}
+                    autoLaunchGradingToday={autoLaunchGradingToday}
+                  />
+                ) : (
+                  <>
+                    {activeView === "instructor" && (
+                      <InstructorHub
+                        activeTab={currentTabId as InstructorViewTab}
+                        classes={classes}
+                        isLoading={isLoadingClasses}
+                        errorMessage={classesError}
+                        onCreateClass={handleCreateClass}
+                        onOpenClass={openClass}
+                      />
+                    )}
+                    {activeView === "admin" && (
+                      <AdminHub activeTab={currentTabId as AdminTab} />
+                    )}
+                    {activeView === "student" && (
+                      <StudentHub activeTab={currentTabId as StudentTab} />
+                    )}
+                  </>
+                )}
+              </StaggeredView>
+            </div>
           </main>
 
           <footer className="w-full border-t border-zinc-100 py-6 px-4 md:px-8 text-center text-xs text-zinc-400">

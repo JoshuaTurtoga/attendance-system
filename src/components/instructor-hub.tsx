@@ -68,12 +68,12 @@ export function InstructorHub({
       })
     : "Today's Schedule";
 
-  const currentTime = new Date();
-  const currentHours = currentTime.getHours();
-  const currentMinutes = currentTime.getMinutes();
-  const currentTimeStr = `${currentHours.toString().padStart(2, "0")}:${currentMinutes
-    .toString()
-    .padStart(2, "0")}`;
+  const currentTimeStr = isMounted
+    ? `${new Date().getHours().toString().padStart(2, "0")}:${new Date()
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`
+    : "00:00";
 
   const sortedTodayClasses = [...classes].sort((a, b) => {
     const timeA = a.schedule[0]?.startTime || "23:59";
