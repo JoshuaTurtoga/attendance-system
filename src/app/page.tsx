@@ -1,16 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
-import { AuthPortal } from "@/components/auth-portal";
-import { PortalShell } from "@/components/portal-shell";
+import { LandingPage } from "@/components/landing-page";
 import { GraduationCap } from "lucide-react";
+import { getLastActivePath, getRoleDefaultRoute } from "@/lib/routing/routes";
 
-export default function HomePage() {
-  const { isAuthenticated, isLoading } = useAuth();
+export default function RootHomePage() {
+  const { isAuthenticated, isLoading, activeView } = useAuth();
+  const router = useRouter();
 
-  // Resolve the stored session before choosing a portal so a returning user
-  // never briefly sees the public landing page.
+  // Redirect authenticated returning users to their active portal or last view
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      const savedPath = getLastActivePath(activeView);
+      const destination = savedPath || getRoleDefaultRoute(activeView);
+      router.replace(destination);
+    }
+  }, [isLoading, isAuthenticated, activeView, router]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#FAFAFA]">
@@ -25,10 +34,10 @@ export default function HomePage() {
     );
   }
 
-  // Public landing page + authentication flow gate every role portal.
-  if (!isAuthenticated) {
-    return <AuthPortal />;
+  if (isAuthenticated) {
+    return null;
   }
 
-  return <PortalShell />;
+  // Public university landing page
+  return <LandingPage />;
 }

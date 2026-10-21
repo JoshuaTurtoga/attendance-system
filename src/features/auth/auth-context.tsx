@@ -18,6 +18,7 @@ import {
   setActiveView as persistActiveView,
   checkEmailRegistered,
 } from "@/lib/data/profiles";
+import { getRoleDefaultRoute } from "@/lib/routing/routes";
 import {
   isUniversityEmail,
   normalizeEmail,
@@ -148,7 +149,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, hydrateProfile]);
 
-  const goToScreen = (screen: AuthScreen) => setAuthScreen(screen);
+  const goToScreen = (screen: AuthScreen) => {
+    setAuthScreen(screen);
+    if (typeof window !== "undefined") {
+      const pathMap: Record<AuthScreen, string> = {
+        login: "/login",
+        register: "/register",
+        forgot: "/forgot-password",
+        landing: "/",
+      };
+      const target = pathMap[screen];
+      if (target && window.location.pathname !== target) {
+        window.history.pushState(null, "", target);
+      }
+    }
+  };
   const clearNotice = () => setAuthNotice(null);
 
   const handleSwitchView = (targetView: Role) => {
@@ -158,6 +173,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setActiveView(validated);
       if (supabase) {
         void persistActiveView(supabase, currentUser.id, validated);
+      }
+      if (typeof window !== "undefined") {
+        const dest = getRoleDefaultRoute(validated);
+        window.history.pushState(null, "", dest);
+        window.location.assign(dest);
       }
     } catch (err) {
       console.error("Failed to switch view:", err);
@@ -205,6 +225,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setCurrentUser(null);
     setAuthScreen("landing");
+    if (typeof window !== "undefined") {
+      window.location.assign("/login");
+    }
   };
 
   const checkEmailAvailability = useCallback(

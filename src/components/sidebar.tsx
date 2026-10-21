@@ -113,16 +113,19 @@ export function Sidebar({
             id: "today",
             label: "Today's Hub",
             icon: <Calendar className="w-4 h-4" />,
+            href: "/instructor/today",
           },
           {
             id: "calendar",
             label: "Weekly Schedule",
             icon: <Clock className="w-4 h-4" />,
+            href: "/instructor/schedule",
           },
           {
             id: "classes",
             label: "All Classes",
             icon: <LayoutGrid className="w-4 h-4" />,
+            href: "/instructor/classes",
           },
         ];
       case "admin":
@@ -131,21 +134,25 @@ export function Sidebar({
             id: "overview",
             label: "System Oversight",
             icon: <Sparkles className="w-4 h-4" />,
+            href: "/admin/overview",
           },
           {
             id: "users",
             label: "User Directory",
             icon: <Users className="w-4 h-4" />,
+            href: "/admin/users",
           },
           {
             id: "classes",
             label: "Class Oversight",
             icon: <BookOpen className="w-4 h-4" />,
+            href: "/admin/classes",
           },
           {
             id: "policies",
             label: "Policy & Terms",
             icon: <Settings className="w-4 h-4" />,
+            href: "/admin/policies",
           },
         ];
       case "student":
@@ -154,21 +161,25 @@ export function Sidebar({
             id: "today",
             label: "Today's Hub",
             icon: <Clock className="w-4 h-4" />,
+            href: "/student/today",
           },
           {
             id: "classes",
             label: "My Enrolled Classes",
             icon: <BookOpen className="w-4 h-4" />,
+            href: "/student/classes",
           },
           {
             id: "timetable",
             label: "Weekly Timetable",
             icon: <Calendar className="w-4 h-4" />,
+            href: "/student/timetable",
           },
           {
             id: "requests",
             label: "Requests & Excuses",
             icon: <KeyRound className="w-4 h-4" />,
+            href: "/student/requests",
           },
         ];
       default:

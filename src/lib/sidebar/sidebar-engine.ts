@@ -68,6 +68,7 @@ export function resolveSidebarMotionTransition(prefersReducedMotion: boolean): s
 export interface RoleNavigationItem {
   id: string;
   label: string;
+  href?: string;
   badge?: string | number;
 }
 
@@ -78,23 +79,23 @@ export function getRoleNavigationItems(role: string): RoleNavigationItem[] {
   switch (role) {
     case "instructor":
       return [
-        { id: "today", label: "Today's Hub" },
-        { id: "calendar", label: "Weekly Timetable" },
-        { id: "classes", label: "All Classes" },
+        { id: "today", label: "Today's Hub", href: "/instructor/today" },
+        { id: "calendar", label: "Weekly Timetable", href: "/instructor/schedule" },
+        { id: "classes", label: "All Classes", href: "/instructor/classes" },
       ];
     case "admin":
       return [
-        { id: "overview", label: "System Oversight" },
-        { id: "users", label: "User Directory" },
-        { id: "classes", label: "Class Oversight" },
-        { id: "policies", label: "Policy & Terms" },
+        { id: "overview", label: "System Oversight", href: "/admin/overview" },
+        { id: "users", label: "User Directory", href: "/admin/users" },
+        { id: "classes", label: "Class Oversight", href: "/admin/classes" },
+        { id: "policies", label: "Policy & Terms", href: "/admin/policies" },
       ];
     case "student":
       return [
-        { id: "today", label: "Today's Hub" },
-        { id: "classes", label: "My Enrolled Classes" },
-        { id: "timetable", label: "Weekly Timetable" },
-        { id: "requests", label: "Join Requests & Appeals" },
+        { id: "today", label: "Today's Hub", href: "/student/today" },
+        { id: "classes", label: "My Enrolled Classes", href: "/student/classes" },
+        { id: "timetable", label: "Weekly Timetable", href: "/student/timetable" },
+        { id: "requests", label: "Join Requests & Appeals", href: "/student/requests" },
       ];
     default:
       return [];

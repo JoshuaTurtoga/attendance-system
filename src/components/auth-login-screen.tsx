@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
 import { AuthShell, AuthField, AuthErrorBanner } from "./auth-shell";
 import { UNIVERSITY_EMAIL_DOMAIN } from "@/lib/auth/auth-engine";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck } from "lucide-react";
+import { resolvePostLoginRedirect } from "@/lib/routing/routes";
 
 export function AuthLoginScreen() {
-  const { signIn, goToScreen, authNotice, clearNotice } = useAuth();
+  const { signIn, goToScreen, authNotice, clearNotice, activeView } = useAuth();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +26,12 @@ export function AuthLoginScreen() {
     const result = await signIn(email, password);
     if (!result.ok) {
       setError(result.error ?? "Unable to sign in.");
+      setIsSubmitting(false);
+    } else {
+      const redirectTo = searchParams ? searchParams.get("redirectTo") : null;
+      const destination = resolvePostLoginRedirect(redirectTo, activeView);
+      window.location.href = destination;
     }
-    setIsSubmitting(false);
   };
 
   return (
