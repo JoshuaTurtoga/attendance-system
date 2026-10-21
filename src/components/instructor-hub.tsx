@@ -159,7 +159,7 @@ export function InstructorHub({
 
       {/* View: Today's Dashboard */}
       {activeTab === "today" && (
-        <div className="space-y-5">
+        <div key="today" className="space-y-5 animate-in fade-in duration-200">
           <div
             className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-2"
             style={{ "--i": 1 } as React.CSSProperties}
@@ -303,7 +303,7 @@ export function InstructorHub({
 
       {/* View: Weekly Schedule Timetable Grid (DOCUMENTATION.md § 4.B.3) */}
       {activeTab === "calendar" && (
-        <div className="stagger-block" style={{ "--i": 1 } as React.CSSProperties}>
+        <div key="calendar" className="stagger-block animate-in fade-in duration-200" style={{ "--i": 1 } as React.CSSProperties}>
           {classes.length === 0 && !isLoading ? (
             emptyState
           ) : (
@@ -320,7 +320,7 @@ export function InstructorHub({
         classes.length === 0 && !isLoading ? (
           emptyState
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div key="classes" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in duration-200">
           {classes.map((cls, idx) => (
             <button
               key={cls.id}

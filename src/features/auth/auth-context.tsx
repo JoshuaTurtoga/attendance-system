@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Role, UserProfile } from "@/types";
 import { getAvailableViews, switchActiveView } from "@/lib/auth/permissions";
@@ -84,6 +85,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const configured = isSupabaseConfigured();
 
@@ -165,9 +167,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, hydrateProfile]);
 
-  const goToScreen = (screen: AuthScreen) => {
-    setAuthScreen(screen);
-    if (typeof window !== "undefined") {
+  const goToScreen = useCallback(
+    (screen: AuthScreen) => {
+      setAuthScreen(screen);
       const pathMap: Record<AuthScreen, string> = {
         login: "/login",
         register: "/register",
@@ -175,11 +177,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         landing: "/",
       };
       const target = pathMap[screen];
-      if (target && window.location.pathname !== target) {
-        window.history.pushState(null, "", target);
+      if (target) {
+        router.push(target);
       }
-    }
-  };
+    },
+    [router]
+  );
   const clearNotice = () => setAuthNotice(null);
 
   const handleSwitchView = (targetView: Role) => {
@@ -243,9 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     appCache.clear();
     setCurrentUser(null);
     setAuthScreen("landing");
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    router.push("/login");
   };
 
   const checkEmailAvailability = useCallback(

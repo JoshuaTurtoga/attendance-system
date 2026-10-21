@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useAuth } from "@/features/auth/auth-context";
+import Link from "next/link";
 import {
   GraduationCap,
   ArrowRight,
@@ -73,8 +73,6 @@ const ROLES = [
 ];
 
 export function LandingPage() {
-  const { goToScreen } = useAuth();
-
   return (
     <div className="min-h-screen w-full bg-[#FAFAFA] flex flex-col">
       {/* Public Top Bar */}
@@ -95,20 +93,18 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => goToScreen("login")}
+            <Link
+              href="/login"
               className="px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition whitespace-nowrap cursor-pointer"
             >
               Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => goToScreen("register")}
+            </Link>
+            <Link
+              href="/register"
               className="px-3.5 py-2 rounded-xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-xs font-semibold shadow-sm transition whitespace-nowrap cursor-pointer"
             >
               Create Account
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -131,21 +127,19 @@ export function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8">
-              <button
-                type="button"
-                onClick={() => goToScreen("login")}
+              <Link
+                href="/login"
                 className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#7C1D26] hover:bg-[#5E141B] text-white text-sm font-bold shadow-md shadow-[#7C1D26]/20 transition whitespace-nowrap cursor-pointer"
               >
                 Enter the Portal
                 <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => goToScreen("register")}
+              </Link>
+              <Link
+                href="/register"
                 className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white border border-zinc-200 hover:border-[#7C1D26]/40 hover:bg-zinc-50 text-zinc-800 text-sm font-bold shadow-xs transition whitespace-nowrap cursor-pointer"
               >
                 Student Registration
-              </button>
+              </Link>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-8 text-xs text-zinc-500">
@@ -290,20 +284,18 @@ export function LandingPage() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => goToScreen("login")}
-              className="px-5 py-3 rounded-2xl bg-white text-zinc-900 text-sm font-bold hover:bg-zinc-100 transition whitespace-nowrap cursor-pointer"
+            <Link
+              href="/login"
+              className="px-5 py-3 rounded-2xl bg-white text-zinc-900 text-sm font-bold hover:bg-zinc-100 transition whitespace-nowrap cursor-pointer text-center"
             >
               Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => goToScreen("register")}
-              className="px-5 py-3 rounded-2xl bg-[#7C1D26] text-white text-sm font-bold hover:bg-[#5E141B] transition whitespace-nowrap cursor-pointer"
+            </Link>
+            <Link
+              href="/register"
+              className="px-5 py-3 rounded-2xl bg-[#7C1D26] text-white text-sm font-bold hover:bg-[#5E141B] transition whitespace-nowrap cursor-pointer text-center"
             >
               Student Registration
-            </button>
+            </Link>
           </div>
         </div>
       </section>
