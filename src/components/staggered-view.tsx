@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
   calculateLeaveDuration,
   calculateArriveDuration,
+  extractMaxBlockIndex,
 } from "@/lib/transitions/stagger-transition";
 
 export interface StaggeredViewProps {
@@ -16,108 +17,116 @@ export interface StaggeredViewProps {
 
 export type StaggerPhase = "idle" | "leaving" | "arriving";
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 /**
  * StaggeredView Component
  *
- * Coordinates staggered exits and entrances of child blocks marked with `.stagger-block`
- * and `--i` indices based on the BrewedOps Motion Library specification.
- * Synchronized with the 587ms spring speed of the Notch tab sidebar navigation.
+ * Implements a true 2-phase staggered page and tab transition:
+ * 1. OUT Phase: The blocks of the current/old view leave one after another (--i cascade).
+ * 2. Content SWAP: Occurs strictly after the last block of the outgoing view has fully exited.
+ * 3. IN Phase: The blocks of the new view arrive in sequence (--i cascade).
  *
- * - Fast-click responsive: If the user clicks tabs faster, the stagger transition
- *   starts IMMEDIATELY without waiting to finish the animation from previous tabs.
- * - Zero 1-frame flash: Outgoing content stays mounted during leaving.
- * - Old blocks leave in sequence (190ms ease-in + 35ms stagger delay).
- * - New blocks arrive in sequence (340ms cubic-bezier(0.32, 0.72, 0, 1) + 35ms stagger delay).
- * - Under prefers-reduced-motion: reduce, uses a single quick cross-fade (150ms).
+ * Guarantees:
+ * - NO UI Flash
+ * - NO Preload visible view of the next tab during the OUT phase
+ * - NO Double-Take of tab/sub-tab views
+ * - Frozen DOM snapshot of outgoing view during OUT (prevents Next.js URL/param updates from leaking)
+ * - Interruptible on fast clicking
+ * - Prefers-reduced-motion: quick 150ms cross-fade
+ * - No external animation libraries
  */
 export function StaggeredView({
   children,
   transitionKey,
   blockCount = 4,
   className = "",
-  syncWithNotch = true,
+  syncWithNotch = false,
 }: StaggeredViewProps) {
-  // prevTransitionKey records the last transitionKey prop we handled
-  const [prevTransitionKey, setPrevTransitionKey] = useState(transitionKey);
-  const [phase, setPhase] = useState<StaggerPhase>("idle");
-  const [version, setVersion] = useState(0);
-
-  // Content states
-  const [currentContent, setCurrentContent] = useState<React.ReactNode>(children);
-  const [outgoingContent, setOutgoingContent] = useState<React.ReactNode>(null);
-  const [incomingContent, setIncomingContent] = useState<React.ReactNode>(children);
-
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // When transitionKey prop changes:
-  if (transitionKey !== prevTransitionKey) {
-    setPrevTransitionKey(transitionKey);
-    setVersion((v) => v + 1);
+  const [prevKey, setPrevKey] = useState<string>(transitionKey);
+  const [targetKey, setTargetKey] = useState<string>(transitionKey);
+  const [displayedKey, setDisplayedKey] = useState<string>(transitionKey);
+  const [phase, setPhase] = useState<StaggerPhase>("idle");
+  const [currentHtml, setCurrentHtml] = useState<string>("");
+  const [outgoingHtml, setOutgoingHtml] = useState<string | null>(null);
+
+  // Synchronously update currentHtml when idle and stage is mounted
+  useIsomorphicLayoutEffect(() => {
+    if (phase === "idle" && stageRef.current) {
+      const html = stageRef.current.innerHTML;
+      if (html && html !== currentHtml) {
+        setCurrentHtml(html);
+      }
+    }
+  }, [phase, currentHtml]);
+
+  // Handle transitionKey changes strictly without reading refs during render
+  if (transitionKey !== prevKey) {
+    setPrevKey(transitionKey);
+    setTargetKey(transitionKey);
 
     if (phase === "idle") {
-      // Normal transition start from idle: old blocks leave in sequence
-      setOutgoingContent(currentContent);
-      setIncomingContent(children);
-      setPhase("leaving");
+      if (currentHtml && currentHtml.trim().length > 0) {
+        setOutgoingHtml(currentHtml);
+        setPhase("leaving");
+      } else {
+        setDisplayedKey(transitionKey);
+        setPhase("arriving");
+      }
     } else {
-      // FAST CLICK INTERRUPTION:
-      // The user clicked tabs faster before the previous transition completed.
-      // Immediately cancel the previous transition and start the new tab's arrival cascade immediately!
-      setCurrentContent(children);
-      setIncomingContent(children);
-      setOutgoingContent(null);
+      // Fast-click interruption:
+      setOutgoingHtml(null);
+      setDisplayedKey(transitionKey);
       setPhase("arriving");
     }
   }
 
-  // Keep currentContent updated while idle when on the same key (e.g. form edits)
-  if (transitionKey === prevTransitionKey && phase === "idle" && currentContent !== children) {
-    setCurrentContent(children);
-  }
-
-  // Active phase and content resolved synchronously to eliminate 1-frame render lag / flash
-  const isKeyChanging = transitionKey !== prevTransitionKey;
-  const activePhase: StaggerPhase = isKeyChanging
-    ? (phase === "idle" ? "leaving" : "arriving")
-    : phase;
-
-  const activeContent =
-    activePhase === "leaving"
-      ? (outgoingContent ?? currentContent)
-      : (activePhase === "arriving" ? (incomingContent ?? children) : (currentContent ?? children));
-
-  // Handle phase progression timers
+  // Handle transition phase timings
   useEffect(() => {
-    // Clear any existing timer when phase, key or version changes
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (phase === "leaving") {
+      const maxBlockIndex = outgoingHtml
+        ? extractMaxBlockIndex(outgoingHtml, blockCount - 1)
+        : blockCount - 1;
+
       const leaveDuration = prefersReducedMotion
         ? 150
-        : calculateLeaveDuration(blockCount, syncWithNotch);
+        : calculateLeaveDuration(maxBlockIndex + 1, syncWithNotch);
 
       timerRef.current = setTimeout(() => {
-        // Swap content cleanly when last block has left
-        setCurrentContent(incomingContent);
+        setOutgoingHtml(null);
+        setDisplayedKey(targetKey);
         setPhase("arriving");
-        setVersion((v) => v + 1);
       }, leaveDuration);
     } else if (phase === "arriving") {
+      let maxBlockIndex = blockCount - 1;
+      if (stageRef.current) {
+        const blocks = stageRef.current.querySelectorAll(".stagger-block");
+        if (blocks.length > 0) {
+          let highest = 0;
+          blocks.forEach((el) => {
+            const val = (el as HTMLElement).style.getPropertyValue("--i");
+            const parsed = parseInt(val, 10);
+            if (!isNaN(parsed) && parsed > highest) highest = parsed;
+          });
+          maxBlockIndex = highest;
+        }
+      }
+
       const arriveDuration = prefersReducedMotion
         ? 150
-        : calculateArriveDuration(blockCount, syncWithNotch);
+        : calculateArriveDuration(maxBlockIndex + 1, syncWithNotch);
 
       timerRef.current = setTimeout(() => {
         setPhase("idle");
-        setOutgoingContent(null);
-        setIncomingContent(null);
       }, arriveDuration);
     }
 
@@ -127,17 +136,26 @@ export function StaggeredView({
         timerRef.current = null;
       }
     };
-  }, [phase, version, blockCount, syncWithNotch, incomingContent]);
+  }, [phase, targetKey, outgoingHtml, blockCount, syncWithNotch]);
 
   return (
     <div
-      key={`${prevTransitionKey}-${activePhase === "leaving" ? "leaving" : "v" + version}`}
+      ref={containerRef}
       className={`stagger-container ${className}`}
-      data-stagger-phase={activePhase}
-      data-transitioning={activePhase !== "idle"}
-      aria-busy={activePhase !== "idle"}
+      data-stagger-phase={phase}
+      data-transitioning={phase !== "idle"}
+      aria-busy={phase !== "idle"}
     >
-      {activeContent}
+      {phase === "leaving" && outgoingHtml ? (
+        <div
+          className="stagger-outgoing-frame"
+          dangerouslySetInnerHTML={{ __html: outgoingHtml }}
+        />
+      ) : (
+        <div ref={stageRef} key={displayedKey} className="stagger-stage">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

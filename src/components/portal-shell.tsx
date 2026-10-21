@@ -238,21 +238,28 @@ export function PortalShell({ children }: PortalShellProps) {
 
   const handleTabChange = (tabId: string) => {
     if (isWorkspaceOpen && resolvedClass) {
+      const dest = `/instructor/classes/${resolvedClass.id}/${tabId}`;
+      if (pathname === dest) return;
       setFallbackWorkspaceTab(tabId as WorkspaceTab);
-      router.push(`/instructor/classes/${resolvedClass.id}/${tabId}`);
+      router.push(dest);
       return;
     }
 
     if (activeView === "instructor") {
-      setFallbackInstructorTab(tabId as InstructorViewTab);
       const dest = tabId === "calendar" ? "/instructor/schedule" : `/instructor/${tabId}`;
+      if (pathname === dest) return;
+      setFallbackInstructorTab(tabId as InstructorViewTab);
       router.push(dest);
     } else if (activeView === "admin") {
+      const dest = `/admin/${tabId}`;
+      if (pathname === dest) return;
       setFallbackAdminTab(tabId as AdminTab);
-      router.push(`/admin/${tabId}`);
+      router.push(dest);
     } else if (activeView === "student") {
+      const dest = `/student/${tabId}`;
+      if (pathname === dest) return;
       setFallbackStudentTab(tabId as StudentTab);
-      router.push(`/student/${tabId}`);
+      router.push(dest);
     }
   };
 

@@ -200,10 +200,10 @@ body {
    ========================================================================== */
 
 :root {
-  --stagger-leave-dur: 190ms;
-  --stagger-arrive-dur: 340ms;
-  --stagger-step-delay: 35ms;
-  --stagger-max-delay: 120ms;
+  --stagger-leave-dur: 250ms;
+  --stagger-arrive-dur: 450ms;
+  --stagger-step-delay: 70ms;
+  --stagger-max-delay: 350ms;
   --stagger-ease-arrive: cubic-bezier(0.32, 0.72, 0, 1);
   --stagger-ease-leave: ease-in;
 }
@@ -220,13 +220,20 @@ body {
   width: 100%;
 }
 
+.stagger-stage,
+.stagger-outgoing-frame {
+  width: 100%;
+  min-width: 0;
+}
+
 .stagger-container[data-transitioning="true"],
 .stagger-container[data-stagger-phase="leaving"],
 .stagger-container[data-stagger-phase="arriving"] {
+  pointer-events: none !important;
   user-select: none;
 }
 
-/* Leave: opacity 1 -> 0, translateY(10px) scale(0.94) over 190ms ease-in */
+/* Leave: opacity 1 -> 0, translateY(10px) scale(0.94) over 250ms ease-in */
 @keyframes staggerLeave {
   0% {
     opacity: 1;
@@ -238,7 +245,7 @@ body {
   }
 }
 
-/* Arrive: opacity 0, translateY(10px) scale(0.94) -> opacity 1, transform: none over 340ms cubic-bezier(0.32, 0.72, 0, 1) */
+/* Arrive: opacity 0, translateY(10px) scale(0.94) -> opacity 1, transform: none over 450ms cubic-bezier(0.32, 0.72, 0, 1) */
 @keyframes staggerArrive {
   0% {
     opacity: 0;
@@ -250,7 +257,7 @@ body {
   }
 }
 
-/* DOM-coordinated phase execution synchronized with 587ms notch tab */
+/* DOM-coordinated phase execution */
 .stagger-container[data-stagger-phase="leaving"] .stagger-block {
   animation: staggerLeave var(--stagger-leave-dur) var(--stagger-ease-leave) both;
   animation-delay: min(calc(var(--i, 0) * var(--stagger-step-delay)), var(--stagger-max-delay));

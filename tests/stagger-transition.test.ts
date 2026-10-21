@@ -17,6 +17,7 @@ import {
   calculateLeaveDuration,
   calculateArriveDuration,
   resolveStaggerTransitionConfig,
+  extractMaxBlockIndex,
 } from "../src/lib/transitions/stagger-transition.ts";
 
 test("Stagger Transition: constants match the specification and BrewedOps Motion Library", () => {
@@ -85,5 +86,21 @@ test("Stagger Transition: notch sidebar synchronization constants and calculatio
   const notchConfig = resolveStaggerTransitionConfig(false, 3, true);
   assert.equal(notchConfig.leaveDurationMs, 260);
   assert.equal(notchConfig.arriveDurationMs, 410);
+});
+
+test("Stagger Transition: extractMaxBlockIndex accurately extracts the highest --i from HTML", () => {
+  assert.equal(
+    extractMaxBlockIndex('<div style="--i: 0">A</div><div style="--i: 2">B</div>'),
+    2
+  );
+  assert.equal(
+    extractMaxBlockIndex('<div class="stagger-block" style="--i: 4; color: red;">Card</div>'),
+    4
+  );
+  assert.equal(
+    extractMaxBlockIndex('<div class="stagger-block">No index</div>', 5),
+    5
+  );
+  assert.equal(extractMaxBlockIndex("", 3), 3);
 });
 

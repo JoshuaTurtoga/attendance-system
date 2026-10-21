@@ -110,3 +110,21 @@ export function resolveStaggerTransitionConfig(
     arriveEasing: STAGGER_ARRIVE_EASING,
   };
 }
+
+/**
+ * Extracts the highest `--i` index from an HTML string or element snippet.
+ * Defaults to fallback (or 3) if no indices are found.
+ */
+export function extractMaxBlockIndex(html: string, fallback: number = 3): number {
+  if (!html) return fallback;
+  const regex = /--i\s*:\s*(\d+)/g;
+  let max = -1;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    const val = parseInt(match[1], 10);
+    if (!isNaN(val) && val > max) {
+      max = val;
+    }
+  }
+  return max >= 0 ? max : fallback;
+}
