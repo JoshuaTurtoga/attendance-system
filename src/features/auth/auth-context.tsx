@@ -20,6 +20,12 @@ import {
 } from "@/lib/data/profiles";
 import { getRoleDefaultRoute } from "@/lib/routing/routes";
 import {
+  getCachedUserProfile,
+  setCachedUserProfile,
+  clearCachedUserProfile,
+  appCache,
+} from "@/lib/cache/data-cache";
+import {
   isUniversityEmail,
   normalizeEmail,
   universityEmailErrorMessage,
@@ -120,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       setCurrentUser(profile);
       if (profile) {
+        setCachedUserProfile(profile);
         setActiveView(profile.activeView);
       }
     };
@@ -128,7 +135,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data } = await supabase.auth.getSession();
       const user = data.session?.user ?? null;
       if (user) {
-        applyProfile(await hydrateProfile(supabase, user.id));
+        // Fast-boot: if profile is in session storage, display immediately without blocking
+        const cached = getCachedUserProfile(user.id);
+        if (cached) {
+          applyProfile(cached);
+          if (!cancelled) setIsLoading(false);
+        }
+        const fresh = await hydrateProfile(supabase, user.id);
+        if (fresh) {
+          applyProfile(fresh);
+        }
       }
       if (!cancelled) setIsLoading(false);
     })();
@@ -223,10 +239,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (supabase) {
       await supabase.auth.signOut();
     }
+    clearCachedUserProfile();
+    appCache.clear();
     setCurrentUser(null);
     setAuthScreen("landing");
     if (typeof window !== "undefined") {
-      window.location.assign("/login");
+      window.location.href = "/login";
     }
   };
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { appCache } from "@/lib/cache/data-cache";
 import type { GradeCategory, GradeItem, StudentGrade } from "@/types";
 
 export interface GradeItemRow {
@@ -57,6 +58,21 @@ export async function listGradeItems(
   return (data as GradeItemRow[] | null ?? []).map(mapGradeItemRow);
 }
 
+/** Batch fetches grade items across multiple classes in a single query. */
+export async function listGradeItemsForClasses(
+  client: SupabaseClient,
+  classIds: string[]
+): Promise<GradeItem[]> {
+  if (classIds.length === 0) return [];
+  const { data, error } = await client
+    .from("grade_items")
+    .select(GRADE_ITEM_COLUMNS)
+    .in("class_id", classIds)
+    .order("date", { ascending: true });
+  if (error) throw error;
+  return (data as GradeItemRow[] | null ?? []).map(mapGradeItemRow);
+}
+
 export interface CreateGradeItemInput {
   category: GradeCategory;
   title: string;
@@ -83,6 +99,8 @@ export async function createGradeItem(
     .select(GRADE_ITEM_COLUMNS)
     .single();
   if (error) throw error;
+  appCache.invalidateTag(`class-${classId}`);
+  appCache.invalidateTag("grades");
   return mapGradeItemRow(data as GradeItemRow);
 }
 
@@ -95,6 +113,20 @@ export async function listStudentGrades(
     .from("student_grades")
     .select("id,grade_item_id,student_id,score,feedback,grade_items!inner(class_id)")
     .eq("grade_items.class_id", classId);
+  if (error) throw error;
+  return (data as StudentGradeRow[] | null ?? []).map(mapStudentGradeRow);
+}
+
+/** Batch fetches student grades across multiple classes in a single query. */
+export async function listStudentGradesForClasses(
+  client: SupabaseClient,
+  classIds: string[]
+): Promise<StudentGrade[]> {
+  if (classIds.length === 0) return [];
+  const { data, error } = await client
+    .from("student_grades")
+    .select("id,grade_item_id,student_id,score,feedback,grade_items!inner(class_id)")
+    .in("grade_items.class_id", classIds);
   if (error) throw error;
   return (data as StudentGradeRow[] | null ?? []).map(mapStudentGradeRow);
 }
@@ -123,6 +155,7 @@ export async function saveGrades(
     { onConflict: "grade_item_id,student_id" }
   );
   if (error) throw error;
+  appCache.invalidateTag("grades");
 }
 
 export async function deleteGradeItem(
@@ -131,4 +164,5 @@ export async function deleteGradeItem(
 ): Promise<void> {
   const { error } = await client.from("grade_items").delete().eq("id", itemId);
   if (error) throw error;
+  appCache.invalidateTag("grades");
 }

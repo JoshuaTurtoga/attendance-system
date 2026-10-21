@@ -28,6 +28,7 @@ import {
   listVisibleClasses,
   type CreateClassInput,
 } from "@/lib/data/classes";
+import { appCache } from "@/lib/cache/data-cache";
 import {
   parsePortalPathname,
   isAuthorizedForRoute,
@@ -130,15 +131,22 @@ export function PortalShell({ children }: PortalShellProps) {
   // Load instructor classes whenever instructor view is active
   const loadClasses = useCallback(async () => {
     if (!supabase || !currentUser) return;
-    setIsLoadingClasses(true);
+    const cached = appCache.get<AcademicClass[]>("visible_classes");
+    if (cached) {
+      setClasses(cached);
+    } else {
+      setIsLoadingClasses(true);
+    }
     setClassesError(null);
     try {
       const data = await listVisibleClasses(supabase);
       setClasses(data);
     } catch (err) {
-      setClassesError(
-        err instanceof Error ? err.message : "Unable to load your classes."
-      );
+      if (!cached) {
+        setClassesError(
+          err instanceof Error ? err.message : "Unable to load your classes."
+        );
+      }
     } finally {
       setIsLoadingClasses(false);
     }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AcademicClass, ClassType, ScheduleBlock } from "@/types";
+import { appCache } from "@/lib/cache/data-cache";
 
 export interface ClassRow {
   id: string;
@@ -50,26 +51,33 @@ export function mapClassRow(row: ClassRow, schedule: ScheduleBlock[]): AcademicC
  * the user teaches, is enrolled in, or (for admins) all classes.
  */
 export async function listVisibleClasses(
-  client: SupabaseClient
+  client: SupabaseClient,
+  forceRefresh: boolean = false
 ): Promise<AcademicClass[]> {
-  const { data, error } = await client
-    .from("classes")
-    .select(`${CLASS_COLUMNS}, class_schedules(day_of_week,start_time,end_time,room)`)
-    .order("created_at", { ascending: false });
+  return appCache.fetchWithCache(
+    "visible_classes",
+    async () => {
+      const { data, error } = await client
+        .from("classes")
+        .select(`${CLASS_COLUMNS}, class_schedules(day_of_week,start_time,end_time,room)`)
+        .order("created_at", { ascending: false });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  return (data ?? []).map((raw) => {
-    const row = raw as ClassRow & { class_schedules?: ScheduleRow[] };
-    const rows = row.class_schedules ?? [];
-    const schedule: ScheduleBlock[] = rows.map((b) => ({
-      dayOfWeek: b.day_of_week,
-      startTime: b.start_time,
-      endTime: b.end_time,
-      room: b.room,
-    }));
-    return mapClassRow(row, schedule);
-  });
+      return (data ?? []).map((raw) => {
+        const row = raw as ClassRow & { class_schedules?: ScheduleRow[] };
+        const rows = row.class_schedules ?? [];
+        const schedule: ScheduleBlock[] = rows.map((b) => ({
+          dayOfWeek: b.day_of_week,
+          startTime: b.start_time,
+          endTime: b.end_time,
+          room: b.room,
+        }));
+        return mapClassRow(row, schedule);
+      });
+    },
+    { ttlMs: 30_000, tags: ["classes"], forceRefresh }
+  );
 }
 
 export interface CreateClassInput {
@@ -124,6 +132,7 @@ export async function createClass(
   // Every class gets a configurable policy row (never hardcoded rules).
   await client.from("class_policies").insert({ class_id: row.id });
 
+  appCache.invalidateTag("classes");
   return mapClassRow(row, input.schedule);
 }
 

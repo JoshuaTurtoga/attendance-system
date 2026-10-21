@@ -26,8 +26,16 @@ import {
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
 import { listVisibleClasses } from "@/lib/data/classes";
 import { listMyJoinRequests, listMyRosterEntries } from "@/lib/data/roster";
-import { listAttendance, listExcuses, submitExcuse } from "@/lib/data/attendance";
-import { listGradeItems, listStudentGrades } from "@/lib/data/grades";
+import {
+  listAttendanceForClasses,
+  listExcusesForClasses,
+  submitExcuse,
+} from "@/lib/data/attendance";
+import {
+  listGradeItemsForClasses,
+  listStudentGradesForClasses,
+} from "@/lib/data/grades";
+import { appCache } from "@/lib/cache/data-cache";
 import {
   listNotifications,
   markNotificationRead,
@@ -155,28 +163,71 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
     if (!supabase || !currentUser) return;
 
     let cancelled = false;
+    const cacheKey = `student_portal_bundle_${currentUser.id}`;
 
     void (async () => {
-      setIsLoading(true);
+      // SWR: serve immediately from cache to eliminate blank loading screens
+      const cached = appCache.get<{
+        classes: AcademicClass[];
+        roster: RosterStudent[];
+        attendance: AttendanceRecord[];
+        items: GradeItem[];
+        grades: StudentGrade[];
+        excuses: ExcuseRequest[];
+        requests: JoinRequest[];
+      }>(cacheKey);
+
+      if (cached) {
+        setEnrolledClasses(cached.classes);
+        setRosterEntries(cached.roster);
+        setAttendanceRecords(cached.attendance);
+        setGradeItems(cached.items);
+        setStudentGrades(cached.grades);
+        setExcuseRequests(cached.excuses);
+        setJoinRequests(cached.requests);
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
       setErrorMessage(null);
       try {
         const classes = await listVisibleClasses(supabase);
         const roster = await listMyRosterEntries(supabase, currentUser.id);
+        const classIds = classes.map((c) => c.id);
+
+        // Single-round batch queries replacing the 4 * N per-class waterfall
         const [attendance, items, grades, excuses, requests] = await Promise.all([
-          Promise.all(classes.map((cls) => listAttendance(supabase, cls.id))),
-          Promise.all(classes.map((cls) => listGradeItems(supabase, cls.id))),
-          Promise.all(classes.map((cls) => listStudentGrades(supabase, cls.id))),
-          Promise.all(classes.map((cls) => listExcuses(supabase, cls.id))),
+          listAttendanceForClasses(supabase, classIds),
+          listGradeItemsForClasses(supabase, classIds),
+          listStudentGradesForClasses(supabase, classIds),
+          listExcusesForClasses(supabase, classIds),
           listMyJoinRequests(supabase, currentUser.id),
         ]);
+
         if (cancelled) return;
+
         setEnrolledClasses(classes);
         setRosterEntries(roster);
-        setAttendanceRecords(attendance.flat());
-        setGradeItems(items.flat());
-        setStudentGrades(grades.flat());
-        setExcuseRequests(excuses.flat());
+        setAttendanceRecords(attendance);
+        setGradeItems(items);
+        setStudentGrades(grades);
+        setExcuseRequests(excuses);
         setJoinRequests(requests);
+
+        appCache.set(
+          cacheKey,
+          {
+            classes,
+            roster,
+            attendance,
+            items,
+            grades,
+            excuses,
+            requests,
+          },
+          30_000,
+          [`student-${currentUser.id}`]
+        );
       } catch (err) {
         if (!cancelled) {
           setErrorMessage(
@@ -265,6 +316,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
   };
 
   const handleJoinSubmitted = (courseName: string) => {
+    if (currentUser) appCache.invalidateTag(`student-${currentUser.id}`);
     setJoinSuccessBanner(
       `Application sent to join "${courseName}". Your instructor will review and approve your enrolment.`
     );
@@ -273,6 +325,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
   };
 
   const handleFileExcuseRequest = (request: ExcuseRequest) => {
+    if (currentUser) appCache.invalidateTag(`student-${currentUser.id}`);
     setExcuseRequests((prev) => [request, ...prev]);
     if (!supabase || !currentUser) return;
     void submitExcuse(supabase, {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { appCache } from "@/lib/cache/data-cache";
 import type { JoinRequest, RosterStudent } from "@/types";
 import { parseStudentName } from "@/lib/roster/roster-engine";
 
@@ -108,6 +109,9 @@ export async function importRosterStudents(
     { onConflict: "class_id,student_number" }
   );
   if (error) throw error;
+  appCache.invalidateTag(`class-${classId}`);
+  appCache.invalidateTag("roster");
+  appCache.invalidateTag("admin");
 }
 
 export async function listJoinRequests(
@@ -190,6 +194,8 @@ export async function submitJoinRequest(
     photo_id_url: input.photoIdUrl ?? null,
   });
   if (error) throw error;
+  appCache.invalidateTag(`class-${input.classId}`);
+  appCache.invalidateTag("roster");
 }
 
 /**
@@ -223,6 +229,9 @@ export async function approveJoinRequest(
       })
       .eq("id", (existing as { id: string }).id);
     if (error) throw error;
+    appCache.invalidateTag(`class-${request.classId}`);
+    appCache.invalidateTag("roster");
+    appCache.invalidateTag("admin");
     return;
   }
 
@@ -239,6 +248,9 @@ export async function approveJoinRequest(
     avatar_url: request.photoIdUrl || null,
   });
   if (insertError) throw insertError;
+  appCache.invalidateTag(`class-${request.classId}`);
+  appCache.invalidateTag("roster");
+  appCache.invalidateTag("admin");
 }
 
 export async function declineJoinRequest(
@@ -251,6 +263,7 @@ export async function declineJoinRequest(
     .update({ status: "declined", rejection_reason: reason })
     .eq("id", requestId);
   if (error) throw error;
+  appCache.invalidateTag("roster");
 }
 
 export async function deleteRosterStudent(
@@ -259,4 +272,6 @@ export async function deleteRosterStudent(
 ): Promise<void> {
   const { error } = await client.from("roster_students").delete().eq("id", studentId);
   if (error) throw error;
+  appCache.invalidateTag("roster");
+  appCache.invalidateTag("admin");
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { appCache } from "@/lib/cache/data-cache";
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -117,6 +118,8 @@ export async function upsertSession(
     { onConflict: "class_id,date", ignoreDuplicates: true }
   );
   if (error) throw error;
+  appCache.invalidateTag(`class-${classId}`);
+  appCache.invalidateTag("attendance");
 }
 
 export async function listAttendance(
@@ -127,6 +130,21 @@ export async function listAttendance(
     .from("attendance_records")
     .select(ATTENDANCE_COLUMNS)
     .eq("class_id", classId)
+    .order("date", { ascending: true });
+  if (error) throw error;
+  return (data as AttendanceRow[] | null ?? []).map(mapAttendanceRow);
+}
+
+/** Batch fetches attendance records across multiple classes in a single query. */
+export async function listAttendanceForClasses(
+  client: SupabaseClient,
+  classIds: string[]
+): Promise<AttendanceRecord[]> {
+  if (classIds.length === 0) return [];
+  const { data, error } = await client
+    .from("attendance_records")
+    .select(ATTENDANCE_COLUMNS)
+    .in("class_id", classIds)
     .order("date", { ascending: true });
   if (error) throw error;
   return (data as AttendanceRow[] | null ?? []).map(mapAttendanceRow);
@@ -157,6 +175,8 @@ export async function saveAttendance(
     { onConflict: "class_id,student_id,date" }
   );
   if (error) throw error;
+  appCache.invalidateTag(`class-${classId}`);
+  appCache.invalidateTag("attendance");
 }
 
 export async function listExcuses(
@@ -167,6 +187,21 @@ export async function listExcuses(
     .from("excuse_requests")
     .select(EXCUSE_COLUMNS)
     .eq("class_id", classId)
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return (data as ExcuseRow[] | null ?? []).map(mapExcuseRow);
+}
+
+/** Batch fetches excuse requests across multiple classes in a single query. */
+export async function listExcusesForClasses(
+  client: SupabaseClient,
+  classIds: string[]
+): Promise<ExcuseRequest[]> {
+  if (classIds.length === 0) return [];
+  const { data, error } = await client
+    .from("excuse_requests")
+    .select(EXCUSE_COLUMNS)
+    .in("class_id", classIds)
     .order("submitted_at", { ascending: false });
   if (error) throw error;
   return (data as ExcuseRow[] | null ?? []).map(mapExcuseRow);
@@ -198,6 +233,8 @@ export async function submitExcuse(
     document_url: input.documentUrl ?? null,
   });
   if (error) throw error;
+  appCache.invalidateTag(`class-${input.classId}`);
+  appCache.invalidateTag("attendance");
 }
 
 /**
@@ -231,6 +268,8 @@ export async function approveExcuse(
       { onConflict: "class_id,student_id,date" }
     );
   if (attendanceError) throw attendanceError;
+  appCache.invalidateTag(`class-${request.classId}`);
+  appCache.invalidateTag("attendance");
 }
 
 export async function declineExcuse(
@@ -247,6 +286,7 @@ export async function declineExcuse(
     })
     .eq("id", requestId);
   if (error) throw error;
+  appCache.invalidateTag("attendance");
 }
 
 export async function deleteSession(
@@ -260,4 +300,6 @@ export async function deleteSession(
     .eq("class_id", classId)
     .eq("date", date);
   if (error) throw error;
+  appCache.invalidateTag(`class-${classId}`);
+  appCache.invalidateTag("attendance");
 }

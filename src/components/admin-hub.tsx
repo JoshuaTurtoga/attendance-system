@@ -8,6 +8,7 @@ import { listVisibleClasses } from "@/lib/data/classes";
 import { listRosterCounts } from "@/lib/data/roster";
 import { fetchSystemPolicy, saveSystemPolicy } from "@/lib/data/admin";
 import { formatTime12Hour } from "@/lib/schedule/timetable-engine";
+import { appCache } from "@/lib/cache/data-cache";
 import {
   filterUsers,
   toggleUserSuspension,
@@ -131,13 +132,31 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  interface AdminDataBundle {
+    users: UserProfile[];
+    classes: AcademicClass[];
+    rosterCounts: Record<string, number>;
+    systemConfig: SystemPolicyConfig;
+  }
+
   const loadAdminData = useCallback(async () => {
     if (!supabase) {
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+
+    const cached = appCache.get<AdminDataBundle>("admin_overview_data");
+    if (cached) {
+      setUsers(cached.users);
+      setClasses(cached.classes);
+      setRosterCounts(cached.rosterCounts);
+      if (cached.systemConfig) setSystemConfig(cached.systemConfig);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
     setLoadError(null);
+
     try {
       const [profiles, classList, counts, policy] = await Promise.all([
         listProfiles(supabase),
@@ -145,14 +164,23 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
         listRosterCounts(supabase),
         fetchSystemPolicy(supabase),
       ]);
+      const bundle: AdminDataBundle = {
+        users: profiles,
+        classes: classList,
+        rosterCounts: counts,
+        systemConfig: policy || EMPTY_POLICY,
+      };
+      appCache.set("admin_overview_data", bundle, 30_000, ["admin"]);
       setUsers(profiles);
       setClasses(classList);
       setRosterCounts(counts);
       if (policy) setSystemConfig(policy);
     } catch (err) {
-      setLoadError(
-        err instanceof Error ? err.message : "Unable to load institutional data."
-      );
+      if (!cached) {
+        setLoadError(
+          err instanceof Error ? err.message : "Unable to load institutional data."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +200,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
     }
     const updated = toggleUserSuspension(user, currentUser?.id);
     setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+    appCache.invalidateTag("admin");
     try {
       if (supabase) await setSuspension(supabase, user.id, Boolean(updated.isSuspended));
       showToast(
@@ -190,6 +219,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
       newUser,
       ...prev.filter((u) => u.id !== newUser.id && u.email !== newUser.email),
     ]);
+    appCache.invalidateTag("admin");
     showToast(
       `Faculty account for ${newUser.firstName} ${newUser.lastName} provisioned successfully.`
     );
@@ -199,6 +229,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
     try {
       if (supabase) await saveSystemPolicy(supabase, newConfig);
       setSystemConfig(newConfig);
+      appCache.invalidateTag("admin");
       showToast("Institutional policies and term settings updated.");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Unable to save policies.");

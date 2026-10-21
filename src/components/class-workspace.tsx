@@ -18,6 +18,7 @@ import { listAttendance, listSessions, listExcuses } from "@/lib/data/attendance
 import { listGradeItems, listStudentGrades } from "@/lib/data/grades";
 import { downloadExcelWorkbook } from "@/lib/export/excel-export";
 import { detectCrossModuleDiscrepancies } from "@/lib/sync/cross-module-sync";
+import { appCache } from "@/lib/cache/data-cache";
 import { ClassRosterTable } from "./class-roster-table";
 import { ClassAttendanceSheet } from "./class-attendance-sheet";
 import { ClassGradesMatrix } from "./class-grades-matrix";
@@ -89,9 +90,32 @@ export function ClassWorkspace({
     if (!supabase || !academicClass.id) return;
 
     let cancelled = false;
+    const cacheKey = `workspace_bundle_${academicClass.id}`;
 
     void (async () => {
-      setIsLoading(true);
+      // SWR: serve instantly from cache if available to eliminate blank loading screens
+      const cached = appCache.get<{
+        students: RosterStudent[];
+        joinRequests: JoinRequest[];
+        attendanceRecords: AttendanceRecord[];
+        sessions: ClassSession[];
+        gradeItems: GradeItem[];
+        studentGrades: StudentGrade[];
+        excuseRequests: ExcuseRequest[];
+      }>(cacheKey);
+
+      if (cached) {
+        setStudents(cached.students);
+        setJoinRequests(cached.joinRequests);
+        setAttendanceRecords(cached.attendanceRecords);
+        setSessions(cached.sessions);
+        setGradeItems(cached.gradeItems);
+        setStudentGrades(cached.studentGrades);
+        setExcuseRequests(cached.excuseRequests);
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
       try {
         const [
@@ -121,6 +145,21 @@ export function ClassWorkspace({
         setGradeItems(gradesItemsData);
         setStudentGrades(gradesData);
         setExcuseRequests(excusesData);
+
+        appCache.set(
+          cacheKey,
+          {
+            students: rosterData,
+            joinRequests: requestsData,
+            attendanceRecords: attendanceData,
+            sessions: sessionsData,
+            gradeItems: gradesItemsData,
+            studentGrades: gradesData,
+            excuseRequests: excusesData,
+          },
+          60_000,
+          [`class-${academicClass.id}`, "grades", "attendance", "roster"]
+        );
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load class data");
@@ -155,6 +194,7 @@ export function ClassWorkspace({
     newRecords: AttendanceRecord[],
     createdSession?: ClassSession
   ) => {
+    appCache.invalidateTag(`class-${academicClass.id}`);
     // 1. Merge new attendance records
     setAttendanceRecords((prev) => {
       const newKeys = new Set(newRecords.map((r) => `${r.studentId}_${r.date}`));
