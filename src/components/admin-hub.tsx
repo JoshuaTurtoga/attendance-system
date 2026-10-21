@@ -307,7 +307,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
 
       {/* TAB 1: SYSTEM OVERSIGHT */}
       {activeTab === "overview" && (
-        <div key="overview" className="space-y-8 animate-in fade-in duration-200">
+        <div className="space-y-8">
           {/* Admin Stat Cards */}
           <div
             className="stagger-block grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
@@ -432,7 +432,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
 
       {/* TAB 2: USER DIRECTORY & MANAGEMENT */}
       {activeTab === "users" && (
-        <div key="users" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           {/* Controls Bar */}
           <div
             className="stagger-block flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-zinc-200/80 shadow-xs"
@@ -616,7 +616,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
 
       {/* TAB 3: INSTITUTIONAL CLASS OVERSIGHT */}
       {activeTab === "classes" && (
-        <div key="classes" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           {/* Read-Only Notice */}
           <div
             className="stagger-block p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3"
@@ -738,7 +738,7 @@ export function AdminHub({ activeTab = "overview" }: AdminHubProps = {}) {
 
       {/* TAB 4: INSTITUTIONAL POLICY & TERM SETTINGS */}
       {activeTab === "policies" && (
-        <div key="policies" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           <div
             className="stagger-block flex items-center justify-between"
             style={{ "--i": 2 } as React.CSSProperties}

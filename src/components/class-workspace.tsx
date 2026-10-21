@@ -401,7 +401,7 @@ export function ClassWorkspace({
         className="stagger-block p-4 md:p-6 rounded-3xl bg-white border border-zinc-200/80 shadow-sm min-h-[400px] min-w-0"
         style={{ "--i": 1 } as React.CSSProperties}
       >
-        <div key={activeTab} className="animate-in fade-in duration-200">
+        <div>
           {activeTab === "roster" && (
             <ClassRosterTable
               classId={academicClass.id}

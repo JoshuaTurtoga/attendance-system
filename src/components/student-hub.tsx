@@ -486,7 +486,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
       {/* TAB 1: TODAY'S DASHBOARD (DOCUMENTATION.md § 4.C.2)     */}
       {/* ======================================================= */}
       {activeTab === "today" && (
-        <div key="today" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           <div
             className="stagger-block flex items-center justify-between"
             style={{ "--i": 2 } as React.CSSProperties}
@@ -663,7 +663,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
       {/* TAB 2: MY ENROLLED CLASSES (PERSONAL ACADEMIC RECORDS)   */}
       {/* ======================================================= */}
       {activeTab === "classes" && (
-        <div key="classes" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           <div
             className="stagger-block flex items-center justify-between"
             style={{ "--i": 2 } as React.CSSProperties}
@@ -788,7 +788,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
       {/* TAB 3: INTERACTIVE VISUAL TIMETABLE (DOCUMENTATION §4.C) */}
       {/* ======================================================= */}
       {activeTab === "timetable" && (
-        <div key="timetable" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           <div
             className="stagger-block flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-zinc-50 border border-zinc-200/80"
             style={{ "--i": 2 } as React.CSSProperties}
@@ -908,7 +908,7 @@ export function StudentHub({ activeTab = "today" }: StudentHubProps = {}) {
       {/* TAB 4: JOIN REQUESTS & EXCUSES TRACKER                  */}
       {/* ======================================================= */}
       {activeTab === "requests" && (
-        <div key="requests" className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-6">
           <div className="stagger-block" style={{ "--i": 2 } as React.CSSProperties}>
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-zinc-950 tracking-tight">

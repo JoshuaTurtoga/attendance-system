@@ -28,19 +28,35 @@ export type StaggerPhase = "idle" | "leaving" | "arriving";
 export function StaggeredView({
   children,
   transitionKey,
-  blockCount = 5,
+  blockCount = 4,
   className = "",
   syncWithNotch = true,
 }: StaggeredViewProps) {
-  const [phase, setPhase] = useState<StaggerPhase>("idle");
-  const prevKeyRef = useRef(transitionKey);
+  // Synchronized state for transition key and phase.
+  // Transitioning to "arriving" during render prevents any 1-frame paint at phase="idle".
+  const [transitionState, setTransitionState] = useState<{
+    key: string;
+    phase: StaggerPhase;
+  }>({
+    key: transitionKey,
+    phase: "idle",
+  });
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (transitionKey !== prevKeyRef.current) {
-      prevKeyRef.current = transitionKey;
-      setPhase("arriving");
+  // Synchronous state adjustment during render when transitionKey changes
+  if (transitionKey !== transitionState.key) {
+    setTransitionState({
+      key: transitionKey,
+      phase: "arriving",
+    });
+  }
 
+  const phase =
+    transitionKey !== transitionState.key ? "arriving" : transitionState.phase;
+
+  useEffect(() => {
+    if (phase === "arriving") {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
@@ -54,19 +70,20 @@ export function StaggeredView({
         : calculateArriveDuration(blockCount, syncWithNotch);
 
       timerRef.current = setTimeout(() => {
-        setPhase("idle");
+        setTransitionState((prev) => ({
+          ...prev,
+          phase: "idle",
+        }));
         timerRef.current = null;
       }, arriveDuration);
     }
-  }, [transitionKey, blockCount, syncWithNotch]);
 
-  useEffect(() => {
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, []);
+  }, [transitionState.key, phase, blockCount, syncWithNotch]);
 
   return (
     <div
